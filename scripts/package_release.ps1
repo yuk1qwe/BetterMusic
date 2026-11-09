@@ -8,7 +8,7 @@ $rootDir = Resolve-Path "$PSScriptRoot\.."
 $projectDir = Join-Path $rootDir "src\YMusic.WinUI"
 $csprojPath = Join-Path $projectDir "YMusic.WinUI.csproj"
 $distDir = Join-Path $rootDir "dist"
-$publishDir = Join-Path $projectDir "bin\Release\net8.0-windows10.0.26100.0\win-x64\publish"
+$publishDir = Join-Path $projectDir "bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
 
 if (-not $Version) {
     [xml]$xml = Get-Content $csprojPath
