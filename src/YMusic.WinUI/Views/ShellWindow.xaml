@@ -7,12 +7,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:controls="using:YMusic.WinUI.Views.Controls"
     xmlns:vm="using:YMusic.WinUI.ViewModels"
-    Title="WinYandex"
+    Title="BetterMusic"
     mc:Ignorable="d">
-
-    <Window.SystemBackdrop>
-        <MicaBackdrop />
-    </Window.SystemBackdrop>
 
     <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
@@ -26,7 +22,7 @@
 
         <!-- TitleBar -->
         <TitleBar x:Name="AppTitleBar"
-                  Title="WinYandex">
+                  Title="BetterMusic">
             <TitleBar.IconSource>
                 <ImageIconSource ImageSource="Assets/AppIcon.ico" />
             </TitleBar.IconSource>

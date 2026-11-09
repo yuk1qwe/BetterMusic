@@ -135,6 +135,15 @@ public sealed partial class ProfileViewModel : BaseViewModel
     private string _selectedEqualizerPreset = "Flat";
 
     [ObservableProperty]
+    private bool _isFullVisualEffects;
+
+    [ObservableProperty]
+    private bool _isExternalLyricsEnabled;
+
+    [ObservableProperty]
+    private int _startupScreenIndex;
+
+    [ObservableProperty]
     private bool _isDiscordRpcEnabled;
 
     [ObservableProperty]
@@ -707,6 +716,9 @@ public sealed partial class ProfileViewModel : BaseViewModel
                 _ => 2
             };
 
+            IsFullVisualEffects = _settingsService.FullVisualEffects;
+            IsExternalLyricsEnabled = _settingsService.ExternalLyricsEnabled;
+            StartupScreenIndex = _settingsService.StartupScreen switch { "Wave" => 1, "Likes" => 2, "Playlists" => 3, _ => 0 };
             IsGaplessPreloadEnabled = _settingsService.GaplessPreloadEnabled;
             IsDiscordRpcEnabled = _settingsService.DiscordRpcEnabled;
             IsObsOverlayEnabled = _settingsService.ObsOverlayEnabled;
@@ -837,7 +849,10 @@ public sealed partial class ProfileViewModel : BaseViewModel
             }
             else if (propName == nameof(ISettingsService.GaplessPreloadEnabled))
             {
-                IsGaplessPreloadEnabled = _settingsService.GaplessPreloadEnabled;
+                IsFullVisualEffects = _settingsService.FullVisualEffects;
+            IsExternalLyricsEnabled = _settingsService.ExternalLyricsEnabled;
+            StartupScreenIndex = _settingsService.StartupScreen switch { "Wave" => 1, "Likes" => 2, "Playlists" => 3, _ => 0 };
+            IsGaplessPreloadEnabled = _settingsService.GaplessPreloadEnabled;
             }
             else if (propName == nameof(ISettingsService.DiscordRpcEnabled))
             {
@@ -1042,6 +1057,22 @@ public sealed partial class ProfileViewModel : BaseViewModel
             ? (IsRussian ? "AAC (Рекомендуется)" : "AAC Preferred")
             : (value == 1 ? "MP3 320k" : (IsRussian ? "Наивысший битрейт" : "Highest Bitrate"));
         ShowNotification(IsRussian ? $"Качество аудио обновлено: {qualityName}" : $"Audio quality updated to: {qualityName}");
+    }
+
+    partial void OnIsFullVisualEffectsChanged(bool value)
+    {
+        if (!_isInitializingSettings) _settingsService.FullVisualEffects = value;
+    }
+
+    partial void OnIsExternalLyricsEnabledChanged(bool value)
+    {
+        if (!_isInitializingSettings) _settingsService.ExternalLyricsEnabled = value;
+    }
+
+    partial void OnStartupScreenIndexChanged(int value)
+    {
+        if (!_isInitializingSettings && value >= 0)
+            _settingsService.StartupScreen = value switch { 1 => "Wave", 2 => "Likes", 3 => "Playlists", _ => "Explore" };
     }
 
     partial void OnIsGaplessPreloadEnabledChanged(bool value)

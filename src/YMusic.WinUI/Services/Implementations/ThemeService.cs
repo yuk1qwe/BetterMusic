@@ -26,10 +26,10 @@ public sealed class ThemeService : IThemeService
     public string CurrentBackdrop => _settingsService.BackdropKind;
 
     // Persistent Accent Brushes (mutated in place so active controls redraw immediately)
-    private readonly SolidColorBrush _accentFillColorDefaultBrush = new(ParseHex("#FFEAB308"));
-    private readonly SolidColorBrush _accentFillColorSecondaryBrush = new(Darken(ParseHex("#FFEAB308"), 0.15));
-    private readonly SolidColorBrush _accentFillColorTertiaryBrush = new(Darken(ParseHex("#FFEAB308"), 0.30));
-    private readonly SolidColorBrush _accentTextFillColorPrimaryBrush = new(Lighten(ParseHex("#FFEAB308"), 0.15));
+    private readonly SolidColorBrush _accentFillColorDefaultBrush = new(ParseHex("#FFED71B1"));
+    private readonly SolidColorBrush _accentFillColorSecondaryBrush = new(Darken(ParseHex("#FFED71B1"), 0.15));
+    private readonly SolidColorBrush _accentFillColorTertiaryBrush = new(Darken(ParseHex("#FFED71B1"), 0.30));
+    private readonly SolidColorBrush _accentTextFillColorPrimaryBrush = new(Lighten(ParseHex("#FFED71B1"), 0.15));
     private readonly SolidColorBrush _textOnAccentFillColorPrimaryBrush = new(Colors.Black);
     private readonly SolidColorBrush _textOnAccentFillColorSecondaryBrush = new(Color.FromArgb(200, 30, 30, 30));
 

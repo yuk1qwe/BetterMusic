@@ -18,6 +18,9 @@ public interface ISettingsService
     int SloplessArtistThreshold { get; set; }
     bool SloplessShowTrackLabels { get; set; }
     bool SloplessShowArtistLabels { get; set; }
+    bool FullVisualEffects { get; set; }
+    bool ExternalLyricsEnabled { get; set; }
+    string StartupScreen { get; set; }
     string AppTheme { get; set; }
     string AccentColorHex { get; set; }
     string BackdropKind { get; set; }

@@ -204,6 +204,48 @@ public sealed class SettingsService : ISettingsService
         }
     }
 
+    public bool FullVisualEffects
+    {
+        get => _settings.FullVisualEffects;
+        set
+        {
+            if (_settings.FullVisualEffects != value)
+            {
+                _settings.FullVisualEffects = value;
+                Save();
+                NotifyChanged(nameof(FullVisualEffects));
+            }
+        }
+    }
+
+    public bool ExternalLyricsEnabled
+    {
+        get => _settings.ExternalLyricsEnabled;
+        set
+        {
+            if (_settings.ExternalLyricsEnabled != value)
+            {
+                _settings.ExternalLyricsEnabled = value;
+                Save();
+                NotifyChanged(nameof(ExternalLyricsEnabled));
+            }
+        }
+    }
+
+    public string StartupScreen
+    {
+        get => _settings.StartupScreen;
+        set
+        {
+            if (_settings.StartupScreen != value)
+            {
+                _settings.StartupScreen = value;
+                Save();
+                NotifyChanged(nameof(StartupScreen));
+            }
+        }
+    }
+
     public string AppTheme
     {
         get => _settings.AppTheme;
@@ -220,7 +262,7 @@ public sealed class SettingsService : ISettingsService
 
     public string AccentColorHex
     {
-        get => string.IsNullOrWhiteSpace(_settings.AccentColorHex) ? "#FFEAB308" : _settings.AccentColorHex;
+        get => string.IsNullOrWhiteSpace(_settings.AccentColorHex) ? "#FFED71B1" : _settings.AccentColorHex;
         set
         {
             if (_settings.AccentColorHex != value)
@@ -234,7 +276,7 @@ public sealed class SettingsService : ISettingsService
 
     public string BackdropKind
     {
-        get => string.IsNullOrWhiteSpace(_settings.BackdropKind) ? "Mica" : _settings.BackdropKind;
+        get => string.IsNullOrWhiteSpace(_settings.BackdropKind) ? "Solid" : _settings.BackdropKind;
         set
         {
             if (_settings.BackdropKind != value)

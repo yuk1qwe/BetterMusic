@@ -34,11 +34,12 @@ public sealed partial class YandexMusicService
             return cached;
         }
 
+        bool externalLyrics = App.GetService<ISettingsService>().ExternalLyricsEnabled;
         bool isTitleInstrumental = IsLikelyInstrumental(title, null);
 
         // FckCensor feature: prefer clean, uncensored lyrics from LRCLIB for censored tracks
         bool isReplaced = Track.IsTrackReplacedChecker?.Invoke(cleanTrackId) ?? false;
-        if (isReplaced && !string.IsNullOrWhiteSpace(title) && !isTitleInstrumental)
+        if (externalLyrics && isReplaced && !string.IsNullOrWhiteSpace(title) && !isTitleInstrumental)
         {
             try
             {
@@ -98,7 +99,7 @@ public sealed partial class YandexMusicService
 
         // 2. Query LRCLIB for synchronized (or fallback plain) lyrics
         List<LyricLine>? lrclibPlainFallback = null;
-        if (!string.IsNullOrWhiteSpace(title))
+        if (externalLyrics && !string.IsNullOrWhiteSpace(title))
         {
             try
             {
@@ -137,7 +138,7 @@ public sealed partial class YandexMusicService
         }
 
         // 4. Fallback to Genius if neither Yandex nor LRCLIB had lyrics (requires non-empty artist to prevent hallucinations)
-        if (!string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(artist))
+        if (externalLyrics && !string.IsNullOrWhiteSpace(title) && !string.IsNullOrWhiteSpace(artist))
         {
             try
             {

@@ -307,8 +307,9 @@ public sealed partial class ShellWindow : Window
 
         if (ViewModel.IsAuthenticated)
         {
-            NavView.SelectedItem = NavItemExplore;
-            NavigateToTag("Explore");
+            string startup = settingsService.StartupScreen;
+            NavView.SelectedItem = startup switch { "Wave" => NavItemWave, "Likes" => NavItemLikes, "Playlists" => NavItemPlaylists, _ => NavItemExplore };
+            NavigateToTag(startup is "Wave" or "Likes" or "Playlists" ? startup : "Explore");
         }
         else
         {

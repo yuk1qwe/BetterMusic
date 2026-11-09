@@ -295,8 +295,8 @@
                         Margin="0,0,80,0">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <FontIcon Glyph="&#xE72E;" FontSize="13" Foreground="#2ECC71" VerticalAlignment="Center" />
-                        <TextBlock Text="oauth.yandex.ru" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <TextBlock Text="• Защищённое соединение Яндекс ID" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Встроенный браузер" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Text="• Для проверки адреса используйте обычный браузер" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Border>
             </Grid>

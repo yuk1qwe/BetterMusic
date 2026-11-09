@@ -1061,6 +1061,28 @@
                 </StackPanel>
 
                 <StackPanel Spacing="8">
+                    <Border Padding="18,16" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4"><TextBlock Text="Полные эффекты" FontWeight="SemiBold"/><TextBlock Text="Плавные переходы и фон обложки. Выключено — облегчённый режим." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+                            <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.IsFullVisualEffects, Mode=TwoWay}" OnContent="Вкл." OffContent="Выкл."/>
+                        </Grid>
+                    </Border>
+                    <Border Padding="18,16" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4"><TextBlock Text="Начальный экран" FontWeight="SemiBold"/><TextBlock Text="Открывается после входа в аккаунт." Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+                            <ComboBox Grid.Column="1" SelectedIndex="{x:Bind ViewModel.StartupScreenIndex, Mode=TwoWay}" MinWidth="180"><ComboBoxItem Content="Главное"/><ComboBoxItem Content="Моя волна"/><ComboBoxItem Content="Любимые треки"/><ComboBoxItem Content="Плейлисты и альбомы"/></ComboBox>
+                        </Grid>
+                    </Border>
+                    <Border Padding="18,16" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4"><TextBlock Text="Тексты из сторонних источников" FontWeight="SemiBold"/><TextBlock Text="Отправлять название трека и исполнителя в LRCLIB и Genius, если нужны дополнительные тексты." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/></StackPanel>
+                            <ToggleSwitch Grid.Column="1" IsOn="{x:Bind ViewModel.IsExternalLyricsEnabled, Mode=TwoWay}" OnContent="Вкл." OffContent="Выкл."/>
+                        </Grid>
+                    </Border>
+
                     <!-- Application Theme Card -->
                     <Border Padding="18,16" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                         <Grid>

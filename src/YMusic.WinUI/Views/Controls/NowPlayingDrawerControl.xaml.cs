@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using YMusic.WinUI.Models;
+using YMusic.WinUI.Services.Interfaces;
 using YMusic.WinUI.ViewModels;
 
 namespace YMusic.WinUI.Views.Controls;
@@ -16,6 +17,7 @@ public sealed partial class NowPlayingDrawerControl : UserControl
     public PlayerBarViewModel ViewModel => App.GetService<PlayerBarViewModel>();
     public UIElement TitleBarDragRegion => HeaderBarGrid;
 
+    private bool FullEffects => App.GetService<ISettingsService>().FullVisualEffects;
     private Storyboard? _currentTransition;
     private bool _isProgrammaticScrolling;
     private DispatcherQueueTimer? _programmaticScrollResetTimer;
@@ -24,6 +26,17 @@ public sealed partial class NowPlayingDrawerControl : UserControl
     public NowPlayingDrawerControl()
     {
         InitializeComponent();
+        AmbientLayer.Visibility = FullEffects ? Visibility.Visible : Visibility.Collapsed;
+        App.GetService<ISettingsService>().SettingChanged += (_, name) =>
+        {
+            if (name == nameof(ISettingsService.FullVisualEffects))
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    AmbientLayer.Visibility = FullEffects ? Visibility.Visible : Visibility.Collapsed;
+                    AmbientGlowCurrent.Source = FullEffects && ViewModel.IsNowPlayingDrawerOpen ? CoverImageCurrent.Source : null;
+                    if (!FullEffects) { _crossfadeStoryboard?.Stop(); AmbientGlowNext.Source = null; }
+                });
+        };
 
         if (ViewModel.IsNowPlayingDrawerOpen)
         {
@@ -327,12 +340,20 @@ public sealed partial class NowPlayingDrawerControl : UserControl
             _currentDisplayedCoverUrl = hdUrl;
             var bmp = new BitmapImage(new Uri(hdUrl));
             CoverImageCurrent.Source = bmp;
-            AmbientGlowCurrent.Source = bmp;
+            AmbientGlowCurrent.Source = FullEffects ? bmp : null;
         }
 
         if (ViewModel.ActiveLyricLine != null)
         {
             ScrollLyricIntoCenter(ViewModel.ActiveLyricLine);
+        }
+
+        if (!FullEffects)
+        {
+            RootDrawerGrid.Opacity = 1;
+            DrawerTranslateTransform.Y = 0;
+            CoverScaleTransform.ScaleX = CoverScaleTransform.ScaleY = 1;
+            return;
         }
 
         var sb = new Storyboard();
@@ -422,6 +443,17 @@ public sealed partial class NowPlayingDrawerControl : UserControl
         // If URL hasn't changed, don't re-animate
         if (string.Equals(_currentDisplayedCoverUrl, newUrl, StringComparison.OrdinalIgnoreCase))
         {
+            return;
+        }
+
+        if (!FullEffects)
+        {
+            _crossfadeStoryboard?.Stop();
+            _currentDisplayedCoverUrl = newUrl;
+            CoverImageCurrent.Source = Uri.TryCreate(newUrl, UriKind.Absolute, out var liteUri) ? new BitmapImage(liteUri) : null;
+            CoverImageNext.Source = null;
+            AmbientGlowCurrent.Source = null;
+            AmbientGlowNext.Source = null;
             return;
         }
 
@@ -547,6 +579,13 @@ public sealed partial class NowPlayingDrawerControl : UserControl
         _currentTransition = null;
 
         IsHitTestVisible = false;
+        if (!FullEffects)
+        {
+            Visibility = Visibility.Collapsed;
+            RootDrawerGrid.Opacity = 0;
+            onCompleted?.Invoke();
+            return;
+        }
 
         var sb = new Storyboard();
 

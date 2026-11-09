@@ -20,10 +20,9 @@
         </Grid.RenderTransform>
 
         <!-- 1. Ambient Background Layer (Apple Music / Yandex Music liquid glow) -->
-        <Grid IsHitTestVisible="False">
+        <Grid x:Name="AmbientLayer" Visibility="Collapsed" IsHitTestVisible="False">
             <!-- Scaled HD Album Art for deep ambient color glow (Two layers for true crossfade) -->
             <Image x:Name="AmbientGlowCurrent"
-                   Source="{x:Bind ViewModel.HdCoverUrl, Mode=OneWay, Converter={StaticResource StringToImageSourceConverter}}"
                    Stretch="UniformToFill"
                    Opacity="0.40"
                    HorizontalAlignment="Center"

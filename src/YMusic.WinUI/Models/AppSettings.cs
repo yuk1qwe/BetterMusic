@@ -43,6 +43,15 @@ public sealed class AppSettings
     [JsonPropertyName("sloplessShowArtistLabels")]
     public bool SloplessShowArtistLabels { get; set; } = true;
 
+    [JsonPropertyName("fullVisualEffects")]
+    public bool FullVisualEffects { get; set; } = false;
+
+    [JsonPropertyName("externalLyricsEnabled")]
+    public bool ExternalLyricsEnabled { get; set; } = false;
+
+    [JsonPropertyName("startupScreen")]
+    public string StartupScreen { get; set; } = "Explore";
+
     [JsonPropertyName("appTheme")]
     public string AppTheme { get; set; } = "Dark"; // "Default", "Light", "Dark", "OLED", "Midnight", "Sepia"
 

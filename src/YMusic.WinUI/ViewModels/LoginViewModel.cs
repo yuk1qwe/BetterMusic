@@ -109,6 +109,7 @@ public sealed partial class LoginViewModel : BaseViewModel
             var (profile, error) = await _musicService.GetAccountStatusDetailedAsync();
             if (profile == null || string.IsNullOrWhiteSpace(profile.UserId))
             {
+                _musicService.SetOAuthToken(string.Empty);
                 SetError(error ?? "Invalid or expired token. Could not retrieve profile.");
                 return false;
             }
@@ -127,6 +128,7 @@ public sealed partial class LoginViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
+            _musicService.SetOAuthToken(string.Empty);
             SetError($"Login error: {ex.Message}");
             return false;
         }
@@ -152,6 +154,7 @@ public sealed partial class LoginViewModel : BaseViewModel
     private void Logout()
     {
         _credentialStorage.RemoveToken();
+        _musicService.SetOAuthToken(string.Empty);
         _audioPlayer.StopAndClear();
         RunOnUi(() =>
         {
@@ -164,6 +167,7 @@ public sealed partial class LoginViewModel : BaseViewModel
     private void HandleUnauthorized()
     {
         _credentialStorage.RemoveToken();
+        _musicService.SetOAuthToken(string.Empty);
         _audioPlayer.StopAndClear();
         RunOnUi(() =>
         {
