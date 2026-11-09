@@ -15,6 +15,8 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Restore
         run: dotnet restore src/YMusic.WinUI/YMusic.WinUI.csproj -r win-x64 -p:Platform=x64
+      - name: Inspect dependencies for known vulnerabilities
+        run: dotnet list src/YMusic.WinUI/YMusic.WinUI.csproj package --vulnerable --include-transitive
       - name: Build
         run: dotnet build src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --no-restore
       - name: Publish portable application
