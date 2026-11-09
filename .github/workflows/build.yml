@@ -36,11 +36,11 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item LICENSE dist/portable/LICENSE.txt
-          Compress-Archive -Path dist/portable/* -DestinationPath dist/BetterMusic-win-x64.zip
+          Set-Content -Path "dist/portable/КАК ЗАПУСТИТЬ.txt" -Encoding UTF8 -Value "Запустите BetterMusic.exe. Остальные файлы нужны для работы программы — оставьте их в этой папке."
       - uses: actions/upload-artifact@v4
         with:
           name: BetterMusic-win-x64
-          path: dist/BetterMusic-win-x64.zip
+          path: dist/portable/
           if-no-files-found: error
   sandbox-observation:
     needs: build
@@ -57,13 +57,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Expand-Archive sandbox-artifact/BetterMusic-win-x64.zip sandbox-app
-          $exe = (Resolve-Path sandbox-app/WinYandex.exe).Path
+          $exe = (Resolve-Path sandbox-artifact/BetterMusic.exe).Path
           $appDirectory = Split-Path $exe
           $dnsBefore = @(Get-DnsClientCache | ForEach-Object Entry)
           $startedAt = Get-Date
           $app = Start-Process -FilePath $exe -WorkingDirectory $appDirectory -PassThru
-          Write-Host "Started WinYandex PID $($app.Id); observation 30 seconds; no account or credentials."
+          Write-Host "Started BetterMusic PID $($app.Id); observation 30 seconds; no account or credentials."
           $seenConnections = @{}
           $seenProcesses = @{}
           $tracked = @($app.Id)
@@ -106,7 +105,7 @@ jobs:
             Write-Host 'Desktop screenshot captured.'
           } catch { Write-Host "Screenshot unavailable: $($_.Exception.GetType().Name)" }
           Write-Host 'Recent application error events:'
-          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$startedAt; Level=2} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'WinYandex|YMusic.WinUI' } | Select-Object -First 5 TimeCreated, Id, Message | Format-List
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$startedAt; Level=2} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'BetterMusic|YMusic.WinUI' } | Select-Object -First 5 TimeCreated, Id, Message | Format-List
           if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
       - name: Upload startup screenshot
         uses: actions/upload-artifact@v4

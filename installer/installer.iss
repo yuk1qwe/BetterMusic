@@ -6,7 +6,7 @@
   #define MyAppVersion "0.0.0"
 #endif
 #define MyAppPublisher "WinYandex"
-#define MyAppExeName "WinYandex.exe"
+#define MyAppExeName "BetterMusic.exe"
 
 [Setup]
 AppId={{D418A7C5-F3B0-4A3C-9A52-2A16976F5E3E}
