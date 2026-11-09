@@ -26,13 +26,31 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: csharp
           build-mode: manual
           queries: security-extended
       - name: Build WinUI project for analysis
         run: dotnet build src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
         with:
           category: /language:csharp
+          output: ${{ runner.temp }}/codeql-results
+      - name: Summarize CodeQL findings
+        shell: pwsh
+        run: |
+          $reports = @(Get-ChildItem "${{ runner.temp }}/codeql-results" -Filter *.sarif -Recurse)
+          if ($reports.Count -eq 0) { throw 'CodeQL SARIF report is missing' }
+          $total = 0
+          foreach ($report in $reports) {
+            $sarif = Get-Content -Raw $report.FullName | ConvertFrom-Json
+            foreach ($run in $sarif.runs) {
+              foreach ($finding in $run.results) {
+                $total++
+                $location = $finding.locations | Select-Object -First 1
+                Write-Host ("{0} | {1}:{2} | {3}" -f $finding.ruleId, $location.physicalLocation.artifactLocation.uri, $location.physicalLocation.region.startLine, $finding.message.text)
+              }
+            }
+          }
+          Write-Host "Total CodeQL findings: $total"
