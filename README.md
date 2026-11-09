@@ -1,7 +1,19 @@
 # BetterMusic
 
-BetterMusic is a native Windows music player derived from [WinYandex](https://github.com/pixiemays/WinYandex), upstream commit `c532409cab0e3232ebd48010fa4d36d5489074f7`. The original project and its contributors retain their copyright; this derivative is distributed under GPL-3.0. See [LICENSE](LICENSE) and [the upstream README](README_UPSTREAM.md).
+Нативный музыкальный плеер для Windows 10/11 на базе [WinYandex](https://github.com/pixiemays/WinYandex). Приложение написано на C# с использованием WinUI 3; исходная лицензия и авторство сохранены. Импортированная версия WinYandex: `c532409cab0e3232ebd48010fa4d36d5489074f7`.
 
-This initial import retains WinYandex's C#, WinUI 3 and .NET 8 implementation. BetterMusic changes credential persistence to Windows-protected storage, removes automatic clipboard polling at login, and replaces the release workflow with a Windows x64 portable build artifact. Existing plaintext session and `.env` files from older versions are not automatically removed; users should remove old tokens themselves and revoke them if exposed.
+Это ранняя тестовая версия. В ней сохранены интерфейс и сервисы WinYandex: поиск, «Моя волна», библиотека, плейлисты и плеер с синхронными текстами. Их работа с аккаунтом и подпиской пока не проверена.
 
-Builds are produced by the Windows build workflow under GitHub Actions. This is an early development version; inherited functionality has not yet been verified with a Yandex account.
+## Скачать
+
+Откройте последний успешный запуск [Windows build](../../actions/workflows/build.yml) и скачайте **BetterMusic-win-x64** в разделе Artifacts. Распакуйте архив и запустите `WinYandex.exe`. Средства разработки на компьютере не нужны. Релизы автоматически не публикуются.
+
+## Настройки и безопасность
+
+Тёмное оформление и облегчённый режим большого плеера включены по умолчанию. В настройках доступны светлая тема, эффекты, начальный экран и дополнительные источники текстов. По умолчанию запросы текстов к LRCLIB и Genius выключены.
+
+Токены хранятся в защищённых хранилищах Windows; приложение не отслеживает буфер обмена в фоне. Старые открытые файлы токенов WinYandex автоматически не удаляются — их следует удалить самостоятельно и при необходимости отозвать старый токен. При каждой сборке проверяются известные уязвимости зависимостей и выполняется проверка Microsoft Defender. Подробности и ограничения описаны в [SECURITY-AUDIT.md](SECURITY-AUDIT.md).
+
+## Лицензия
+
+GPL-3.0. См. [LICENSE](LICENSE) и [исходное описание WinYandex](README_UPSTREAM.md).
