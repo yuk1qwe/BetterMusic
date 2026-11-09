@@ -18,7 +18,6 @@ public sealed partial class LoginPage : Page
         $"https://oauth.yandex.ru/authorize?response_type=token&client_id={EnvironmentConfig.YandexClientId}";
 
     private bool _isLoggingIn;
-    private DispatcherQueueTimer? _clipboardTimer;
 
     public LoginViewModel ViewModel { get; }
 
@@ -30,7 +29,6 @@ public sealed partial class LoginPage : Page
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
-        StopClipboardListener();
     }
 
     private void SignInWithBrowserButton_Click(object sender, RoutedEventArgs e)
@@ -70,18 +68,8 @@ public sealed partial class LoginPage : Page
 
     private void CancelBrowserAuthButton_Click(object sender, RoutedEventArgs e)
     {
-        StopClipboardListener();
         BrowserWaitingPanel.Visibility = Visibility.Collapsed;
         InitialLoginPanel.Visibility = Visibility.Visible;
-    }
-
-    private void StopClipboardListener()
-    {
-        if (_clipboardTimer != null)
-        {
-            _clipboardTimer.Stop();
-            _clipboardTimer = null;
-        }
     }
 
     private async void PasteFromClipboardButton_Click(object sender, RoutedEventArgs e)
@@ -110,13 +98,12 @@ public sealed partial class LoginPage : Page
                 if (!string.IsNullOrWhiteSpace(token))
                 {
                     _isLoggingIn = true;
-                    StopClipboardListener();
-
+            
                     bool success = await ViewModel.LoginWithOAuthTokenAsync(token);
                     if (!success)
                     {
                         _isLoggingIn = false;
-                                    }
+                    }
                     return success;
                 }
             }

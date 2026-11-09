@@ -191,7 +191,7 @@
                                     <Border Grid.Column="0" Width="20" Height="20" CornerRadius="10" Background="{ThemeResource AccentFillColorDefaultBrush}">
                                         <TextBlock Text="2" FontSize="11" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
-                                    <TextBlock Grid.Column="1" Text="Скопируйте адресную строку (Ctrl+C) — приложение само перехватит ссылку!" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                    <TextBlock Grid.Column="1" Text="Скопируйте адресную строку (Ctrl+C), затем нажмите кнопку ниже." FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" />
                                 </Grid>
                             </StackPanel>
                         </StackPanel>

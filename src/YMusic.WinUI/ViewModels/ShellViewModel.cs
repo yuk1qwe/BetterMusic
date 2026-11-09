@@ -202,30 +202,6 @@ public sealed partial class ShellViewModel : BaseViewModel
             RunOnUi(() => IsAuthenticated = false);
         }
 
-        // Check for updates in background (non-blocking)
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(2500);
-                var update = await _updateService.CheckForUpdatesAsync();
-                if (update.IsUpdateAvailable)
-                {
-                    _detectedUpdate = update;
-                    RunOnUi(() =>
-                    {
-                        UpdateBannerVersion = $"v{update.LatestVersion}";
-                        UpdateBannerMessage = IsRussian
-                            ? $"Доступна новая версия WinYandex {UpdateBannerVersion}!"
-                            : $"New version WinYandex {UpdateBannerVersion} is available!";
-                        IsUpdateBannerOpen = true;
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[ShellViewModel Update check error] {ex.Message}");
-            }
-        });
+
     }
 }

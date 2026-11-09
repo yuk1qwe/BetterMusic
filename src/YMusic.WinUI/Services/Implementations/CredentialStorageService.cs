@@ -138,7 +138,7 @@ public sealed class CredentialStorageService : ICredentialStorageService
                 _cachedUserId = userId.Trim();
             }
 
-            // Persist across all layers: UserProfile, Local, Roaming, Win32 Credential Manager, and .env
+            // Persist only in Windows-protected credential stores.
             SaveToWin32Cred(_cachedToken, _cachedUserId);
 
             // Also persist to PasswordVault as secondary storage
