@@ -1744,16 +1744,6 @@ public sealed partial class ProfileViewModel : BaseViewModel
         {
             await _audioCacheService.ClearCacheAsync();
 
-            string cacheFolder = _audioCacheService.CacheDirectory;
-            if (Directory.Exists(cacheFolder))
-            {
-                var files = Directory.GetFiles(cacheFolder);
-                foreach (var f in files)
-                {
-                    try { File.Delete(f); } catch { }
-                }
-            }
-
             CalculateCacheSize();
             ShowNotification(IsRussian ? "Аудио и системный кэш успешно очищены." : "Audio and application cache successfully cleared.");
         }

@@ -17,6 +17,7 @@ public sealed class FckCensorService : IFckCensorService
     private const string SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6b21xdmdja3Bna3NoeGhwaXRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNTgzNDEsImV4cCI6MjA5MDYzNDM0MX0.ggCxM-ver3gDWUBWyhSBfy3n7rpdW8jtlxRQVCXkhNg";
 
     private readonly HttpClient _httpClient = new();
+    private readonly ISettingsService _settingsService;
     private readonly string _baseDir;
     private readonly string _tracksDir;
     private readonly string _exceptionsFile;
@@ -52,8 +53,9 @@ public sealed class FckCensorService : IFckCensorService
 
     public event EventHandler<string>? TrackReplacementChanged;
 
-    public FckCensorService()
+    public FckCensorService(ISettingsService settingsService)
     {
+        _settingsService = settingsService;
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         _baseDir = Path.Combine(localAppData, "YMusic", "FckCensor");
         _tracksDir = Path.Combine(_baseDir, "tracks");
@@ -66,7 +68,15 @@ public sealed class FckCensorService : IFckCensorService
         Directory.CreateDirectory(_tracksDir);
 
         LoadLocalState();
-        _ = InitializeAsync();
+        if (_settingsService.FckCensorEnabled) _ = InitializeAsync();
+        _settingsService.SettingChanged += (_, name) =>
+        {
+            if (name == nameof(ISettingsService.FckCensorEnabled))
+            {
+                if (_settingsService.FckCensorEnabled) _ = InitializeAsync();
+                TrackReplacementChanged?.Invoke(this, string.Empty);
+            }
+        };
     }
 
     private void LoadLocalState()
@@ -155,6 +165,7 @@ public sealed class FckCensorService : IFckCensorService
 
     public async Task InitializeAsync()
     {
+        if (!_settingsService.FckCensorEnabled) return;
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -453,6 +464,7 @@ public sealed class FckCensorService : IFckCensorService
 
     public TrackSpoof? GetTrackSpoof(string trackId)
     {
+        if (!_settingsService.FckCensorEnabled) return null;
         if (string.IsNullOrWhiteSpace(trackId)) return null;
 
         lock (_lock)
@@ -477,6 +489,7 @@ public sealed class FckCensorService : IFckCensorService
 
     public AlbumSpoof? GetAlbumSpoof(long albumId)
     {
+        if (!_settingsService.FckCensorEnabled) return null;
         lock (_lock)
         {
             return _albumSpoofs.TryGetValue(albumId, out var spoof) ? spoof : null;
@@ -485,6 +498,7 @@ public sealed class FckCensorService : IFckCensorService
 
     public ArtistInsertion? GetArtistInsertions(long artistId)
     {
+        if (!_settingsService.FckCensorEnabled) return null;
         lock (_lock)
         {
             return _artistInsertions.TryGetValue(artistId, out var insertion) ? insertion : null;
@@ -493,6 +507,7 @@ public sealed class FckCensorService : IFckCensorService
 
     public bool IsReplaced(string trackId)
     {
+        if (!_settingsService.FckCensorEnabled) return false;
         if (string.IsNullOrWhiteSpace(trackId)) return false;
 
         lock (_lock)
@@ -513,6 +528,7 @@ public sealed class FckCensorService : IFckCensorService
 
     public string? GetReplacementUrl(string trackId)
     {
+        if (!_settingsService.FckCensorEnabled) return null;
         if (string.IsNullOrWhiteSpace(trackId)) return null;
 
         lock (_lock)

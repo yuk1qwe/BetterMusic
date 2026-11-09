@@ -183,7 +183,7 @@ public sealed class AudioCacheService : IAudioCacheService
                 {
                     try
                     {
-                        var files = Directory.GetFiles(_audioDir);
+                        var files = _metadata.Entries.Values.Where(e => IsManagedCachePath(e.RelativePath)).Select(e => Path.Combine(_cacheBaseDir, e.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
                         foreach (var file in files)
                         {
                             try
@@ -194,7 +194,6 @@ public sealed class AudioCacheService : IAudioCacheService
                                 {
                                     File.Copy(file, destFile, overwrite: true);
                                 }
-                                try { File.Delete(file); } catch { }
                             }
                             catch (Exception ex)
                             {
@@ -239,6 +238,19 @@ public sealed class AudioCacheService : IAudioCacheService
         }
     }
 
+    private bool IsManagedCachePath(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath) || Path.IsPathRooted(relativePath)) return false;
+        try
+        {
+            string fullPath = Path.GetFullPath(Path.Combine(_cacheBaseDir, relativePath));
+            string? parent = Path.GetDirectoryName(fullPath);
+            return string.Equals(parent, Path.GetFullPath(_audioDir).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase)
+                && (fullPath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) || fullPath.EndsWith(".aac", StringComparison.OrdinalIgnoreCase));
+        }
+        catch { return false; }
+    }
+
     private void LoadIndexAndSelfHeal()
     {
         lock (_lock)
@@ -281,6 +293,11 @@ public sealed class AudioCacheService : IAudioCacheService
 
             foreach (var kvp in _metadata.Entries)
             {
+                if (!IsManagedCachePath(kvp.Value.RelativePath))
+                {
+                    missingKeys.Add(kvp.Key);
+                    continue;
+                }
                 string fullPath = Path.Combine(_cacheBaseDir, kvp.Value.RelativePath);
                 if (!File.Exists(fullPath))
                 {
@@ -443,7 +460,7 @@ public sealed class AudioCacheService : IAudioCacheService
         }
 
         string sanitizedId = SanitizeFileName(trackId);
-        string codec = string.IsNullOrWhiteSpace(quality?.Codec) ? "mp3" : quality.Codec.ToLowerInvariant();
+        string codec = string.IsNullOrWhiteSpace(quality?.Codec) ? "mp3" : SanitizeFileName(quality.Codec.ToLowerInvariant());
         int bitrate = quality?.BitrateInKbps ?? 320;
         string ext = codec.Contains("aac") ? ".aac" : ".mp3";
         string targetFileName = $"{sanitizedId}_{codec}_{bitrate}{ext}";
@@ -558,7 +575,7 @@ public sealed class AudioCacheService : IAudioCacheService
                 {
                     if (Directory.Exists(_audioDir))
                     {
-                        var files = Directory.GetFiles(_audioDir);
+                        var files = _metadata.Entries.Values.Where(e => IsManagedCachePath(e.RelativePath)).Select(e => Path.Combine(_cacheBaseDir, e.RelativePath)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
                         foreach (var file in files)
                         {
                             try { File.Delete(file); } catch { }
