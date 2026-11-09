@@ -22,6 +22,7 @@ public sealed partial class YandexMusicService : IYandexMusicService
     private const string ClientHeader = "YandexMusicDesktopAppWindows/5.29.1";
 
     private readonly HttpClient _httpClient;
+    private static readonly HttpClient _downloadHttpClient = new();
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly ICredentialStorageService? _credentialStorage;
     private readonly HashSet<string> _likedTrackIds = new();
@@ -95,11 +96,7 @@ public sealed partial class YandexMusicService : IYandexMusicService
     public void SetOAuthToken(string token)
     {
         _token = token?.Trim();
-        if (!string.IsNullOrWhiteSpace(_token))
-        {
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("OAuth", _token);
-        }
-        else
+        if (string.IsNullOrWhiteSpace(_token))
         {
             _httpClient.DefaultRequestHeaders.Authorization = null;
             _albumWithTracksCache.Clear();
@@ -1901,7 +1898,7 @@ public sealed partial class YandexMusicService : IYandexMusicService
         }
 
         // Download the XML info
-        using var xmlResponse = await _httpClient.GetAsync(selectedInfo.DownloadInfoUrl, cancellationToken).ConfigureAwait(false);
+        using var xmlResponse = await GetUnauthenticatedDownloadAsync(selectedInfo.DownloadInfoUrl, cancellationToken).ConfigureAwait(false);
         if (!xmlResponse.IsSuccessStatusCode)
         {
             return (null, null);
@@ -2542,15 +2539,34 @@ public sealed partial class YandexMusicService : IYandexMusicService
         }
     }
 
+    // URLs returned by the API are data, not authority to receive account credentials.
+    private static Task<HttpResponseMessage> GetUnauthenticatedDownloadAsync(string url, CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            throw new InvalidOperationException("Download URL must use HTTPS.");
+        return _downloadHttpClient.GetAsync(uri, cancellationToken);
+    }
+
+    private static async Task<string> GetUnauthenticatedDownloadStringAsync(string url, CancellationToken cancellationToken)
+    {
+        using var response = await GetUnauthenticatedDownloadAsync(url, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<HttpResponseMessage?> SendRequestAsync(
         HttpMethod method,
         string endpoint,
         HttpContent? content,
         CancellationToken cancellationToken)
     {
+        var target = new Uri(new Uri(ApiBaseUrl), endpoint);
+        if (target.Scheme != Uri.UriSchemeHttps || !string.Equals(target.Host, "api.music.yandex.net", StringComparison.OrdinalIgnoreCase) || target.Port != 443)
+            throw new InvalidOperationException("OAuth requests must target the Yandex Music API.");
+
         HttpRequestMessage CreateRequest()
         {
-            var req = new HttpRequestMessage(method, endpoint);
+            var req = new HttpRequestMessage(method, target);
             if (content != null)
             {
                 req.Content = content;

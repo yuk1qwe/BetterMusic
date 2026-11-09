@@ -186,7 +186,7 @@ public sealed partial class YandexMusicService
                     {
                         try
                         {
-                            var lrcContent = await _httpClient.GetStringAsync(apiResult.Result.DownloadUrl, cancellationToken).ConfigureAwait(false);
+                            var lrcContent = await GetUnauthenticatedDownloadStringAsync(apiResult.Result.DownloadUrl, cancellationToken).ConfigureAwait(false);
                             var parsed = LyricLine.ParseLrc(lrcContent, durationSeconds);
                             if (parsed.Count > 0) return parsed;
                         }
@@ -235,7 +235,7 @@ public sealed partial class YandexMusicService
                     {
                         try
                         {
-                            rawLyrics = await _httpClient.GetStringAsync(lyrics.DownloadUrl, cancellationToken).ConfigureAwait(false);
+                            rawLyrics = await GetUnauthenticatedDownloadStringAsync(lyrics.DownloadUrl, cancellationToken).ConfigureAwait(false);
                         }
                         catch { }
                     }

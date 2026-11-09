@@ -19,6 +19,15 @@ jobs:
         run: dotnet build src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --no-restore
       - name: Publish portable application
         run: dotnet publish src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true --no-restore -o dist/portable
+      - name: Scan published files with Microsoft Defender
+        shell: pwsh
+        run: |
+          $status = Get-MpComputerStatus
+          if (-not $status.AntivirusEnabled) { throw "Microsoft Defender antivirus is unavailable on the runner" }
+          Write-Host "Antivirus engine: $($status.AMEngineVersion); signatures: $($status.AntivirusSignatureVersion)"
+          Start-MpScan -ScanType CustomScan -ScanPath (Resolve-Path dist/portable).Path
+          $threats = @(Get-MpThreatDetection | Where-Object { $_.InitialDetectionTime -ge (Get-Date).AddMinutes(-20) })
+          if ($threats.Count -gt 0) { $threats | Format-List; throw "Microsoft Defender reported a threat" }
       - name: Package
         shell: pwsh
         run: |
