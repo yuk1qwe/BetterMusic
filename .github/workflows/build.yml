@@ -94,6 +94,23 @@ jobs:
           $dnsAfter = @(Get-DnsClientCache | ForEach-Object Entry | Sort-Object -Unique)
           $newDns = @($dnsAfter | Where-Object { $_ -notin $dnsBefore })
           if ($newDns.Count -eq 0) { Write-Host '(none observed)' } else { $newDns | ForEach-Object { Write-Host $_ } }
+          try {
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+            $bitmap.Save((Join-Path $env:RUNNER_TEMP 'bettermusic-startup.png'))
+            $graphics.Dispose(); $bitmap.Dispose()
+            Write-Host 'Desktop screenshot captured.'
+          } catch { Write-Host "Screenshot unavailable: $($_.Exception.GetType().Name)" }
           Write-Host 'Recent application error events:'
           Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$startedAt; Level=2} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'WinYandex|YMusic.WinUI' } | Select-Object -First 5 TimeCreated, Id, Message | Format-List
           if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+      - name: Upload startup screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterMusic-startup-preview
+          path: ${{ runner.temp }}/bettermusic-startup.png
+          if-no-files-found: warn

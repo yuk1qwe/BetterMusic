@@ -34,7 +34,7 @@ public partial class App : Application
 
         UnhandledException += (sender, e) =>
         {
-            string msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [CRITICAL UnhandledException]: {e.Message}\n{e.Exception}\nStackTrace:\n{e.Exception?.StackTrace}\n";
+            string msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [CRITICAL UnhandledException] Type: {e.Exception?.GetType().FullName ?? "unknown"}\n";
             System.Diagnostics.Debug.WriteLine(msg);
             try
             {

@@ -15,7 +15,7 @@ namespace YMusic.WinUI.Views.Pages;
 public sealed partial class LoginPage : Page
 {
     private static string OAuthUrl =>
-        $"https://oauth.yandex.ru/authorize?response_type=token&client_id={EnvironmentConfig.YandexClientId}";
+        $"https://oauth.yandex.ru/authorize?response_type=token&client_id={Uri.EscapeDataString(EnvironmentConfig.YandexClientId)}";
 
     private bool _isLoggingIn;
 
