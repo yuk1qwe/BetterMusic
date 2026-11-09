@@ -269,10 +269,10 @@ public sealed class ObsOverlayService : IObsOverlayService
         var request = context.Request;
         var response = context.Response;
 
-        // CORS headers for all responses
-        response.Headers.Add("Access-Control-Allow-Origin", "*");
-        response.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
-        response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+        // Browser sources on this server use same-origin requests. Do not expose
+        // playback data to arbitrary websites through permissive CORS.
+        response.Headers.Add("X-Content-Type-Options", "nosniff");
+        response.Headers.Add("Referrer-Policy", "no-referrer");
 
         if (request.HttpMethod.Equals("OPTIONS", StringComparison.OrdinalIgnoreCase))
         {
@@ -356,15 +356,30 @@ public sealed class ObsOverlayService : IObsOverlayService
         response.Headers.Add("Cache-Control", "no-cache");
         response.Headers.Add("Connection", "keep-alive");
 
+        lock (_sseLock)
+        {
+            if (_sseClients.Count >= 8)
+            {
+                response.StatusCode = 503;
+                response.Close();
+                return;
+            }
+            _sseClients.Add(response);
+        }
+
         // Send initial state immediately
         string initialData = $"data: {BuildCurrentStateJson()}\n\n";
         byte[] bytes = Encoding.UTF8.GetBytes(initialData);
-        response.OutputStream.Write(bytes, 0, bytes.Length);
-        response.OutputStream.Flush();
-
-        lock (_sseLock)
+        try
         {
-            _sseClients.Add(response);
+            response.OutputStream.Write(bytes, 0, bytes.Length);
+            response.OutputStream.Flush();
+        }
+        catch
+        {
+            lock (_sseLock) { _sseClients.Remove(response); }
+            try { response.Close(); } catch { }
+            throw;
         }
     }
 

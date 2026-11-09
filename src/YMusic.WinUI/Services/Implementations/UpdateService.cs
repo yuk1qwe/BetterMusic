@@ -235,6 +235,14 @@ public sealed class UpdateService : IUpdateService
             throw new InvalidOperationException("No download URL available for update.");
         }
 
+        const long maxUpdateBytes = 512L * 1024 * 1024;
+        if (!Uri.TryCreate(update.DownloadUrl, UriKind.Absolute, out var updateUri) ||
+            updateUri.Scheme != Uri.UriSchemeHttps || !updateUri.IsDefaultPort ||
+            !string.Equals(updateUri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+            !updateUri.AbsolutePath.StartsWith($"/{RepoOwner}/{RepoName}/releases/download/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Update URL is not an expected GitHub release URL.");
+        }
         string updatesDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YMusic", "Updates");
         Directory.CreateDirectory(updatesDir);
 
@@ -248,13 +256,17 @@ public sealed class UpdateService : IUpdateService
         }
         catch { }
 
-        string fileName = update.AssetName ?? $"WinYandex-v{update.LatestVersion}-Setup.exe";
+        string fileName = update.AssetName ?? "WinYandex-Update.exe";
+        if (fileName != Path.GetFileName(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            string.IsNullOrWhiteSpace(fileName) || fileName == "." || fileName == "..")
+            throw new InvalidOperationException("Invalid update filename.");
         string filePath = Path.Combine(updatesDir, fileName);
 
         using var response = await HttpClient.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         long totalBytes = response.Content.Headers.ContentLength ?? update.FileSizeBytes;
+        if (totalBytes > maxUpdateBytes) throw new InvalidOperationException("Update exceeds size limit.");
 
         using var contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
@@ -265,8 +277,9 @@ public sealed class UpdateService : IUpdateService
 
         while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false)) > 0)
         {
-            await fileStream.WriteAsync(buffer, 0, bytesRead, ct).ConfigureAwait(false);
             downloaded += bytesRead;
+            if (downloaded > maxUpdateBytes) throw new InvalidOperationException("Update exceeds size limit.");
+            await fileStream.WriteAsync(buffer, 0, bytesRead, ct).ConfigureAwait(false);
 
             if (totalBytes > 0 && progress != null)
             {

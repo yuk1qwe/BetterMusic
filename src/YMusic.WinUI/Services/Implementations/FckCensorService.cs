@@ -546,9 +546,13 @@ public sealed class FckCensorService : IFckCensorService
                 return null;
             }
 
-            if (_remoteTracks.TryGetValue(trackId, out var remoteUrl))
+            if (_remoteTracks.TryGetValue(trackId, out var remoteUrl) &&
+                Uri.TryCreate(remoteUrl, UriKind.Absolute, out var remoteUri) &&
+                remoteUri.Scheme == Uri.UriSchemeHttps && remoteUri.IsDefaultPort &&
+                string.Equals(remoteUri.Host, "raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase) &&
+                remoteUri.AbsolutePath.StartsWith("/Hazzz895/FckCensorData/", StringComparison.Ordinal))
             {
-                return remoteUrl;
+                return remoteUri.AbsoluteUri;
             }
 
             return null;
