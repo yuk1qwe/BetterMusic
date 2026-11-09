@@ -42,3 +42,58 @@ jobs:
           name: BetterMusic-win-x64
           path: dist/BetterMusic-win-x64.zip
           if-no-files-found: error
+  sandbox-observation:
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: BetterMusic-win-x64
+          path: sandbox-artifact
+      - name: Launch in clean Windows runner and observe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Expand-Archive sandbox-artifact/BetterMusic-win-x64.zip sandbox-app
+          $exe = (Resolve-Path sandbox-app/WinYandex.exe).Path
+          $appDirectory = Split-Path $exe
+          $dnsBefore = @(Get-DnsClientCache | ForEach-Object Entry)
+          $startedAt = Get-Date
+          $app = Start-Process -FilePath $exe -WorkingDirectory $appDirectory -PassThru
+          Write-Host "Started WinYandex PID $($app.Id); observation 30 seconds; no account or credentials."
+          $seenConnections = @{}
+          $seenProcesses = @{}
+          $tracked = @($app.Id)
+          for ($i = 0; $i -lt 30; $i++) {
+            $all = @(Get-CimInstance Win32_Process)
+            foreach ($p in $all) {
+              if ($p.ParentProcessId -in $tracked -and $p.ProcessId -notin $tracked) { $tracked += $p.ProcessId }
+            }
+            foreach ($p in $all | Where-Object { $_.ProcessId -in $tracked }) {
+              $seenProcesses[$p.ProcessId] = "$($p.Name) PID=$($p.ProcessId) parent=$($p.ParentProcessId)"
+            }
+            foreach ($pidValue in $tracked) {
+              foreach ($c in @(Get-NetTCPConnection -OwningProcess $pidValue -ErrorAction SilentlyContinue)) {
+                $key = "$($c.OwningProcess) $($c.RemoteAddress):$($c.RemotePort) $($c.State)"
+                $seenConnections[$key] = $true
+              }
+            }
+            Start-Sleep -Seconds 1
+          }
+          $app.Refresh()
+          Write-Host "Process still running: $(-not $app.HasExited)"
+          if ($app.HasExited) { Write-Host "Exit code: $($app.ExitCode)" } else { Write-Host "Window title: $($app.MainWindowTitle)" }
+          Write-Host 'Observed app and child processes:'
+          $seenProcesses.Values | Sort-Object | ForEach-Object { Write-Host $_ }
+          Write-Host 'Observed TCP endpoints for tracked processes:'
+          if ($seenConnections.Count -eq 0) { Write-Host '(none observed)' } else { $seenConnections.Keys | Sort-Object | ForEach-Object { Write-Host $_ } }
+          Write-Host 'New system DNS cache entries (not necessarily caused by the application):'
+          $dnsAfter = @(Get-DnsClientCache | ForEach-Object Entry | Sort-Object -Unique)
+          $newDns = @($dnsAfter | Where-Object { $_ -notin $dnsBefore })
+          if ($newDns.Count -eq 0) { Write-Host '(none observed)' } else { $newDns | ForEach-Object { Write-Host $_ } }
+          Write-Host 'Recent application error events:'
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$startedAt; Level=2} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'WinYandex|YMusic.WinUI' } | Select-Object -First 5 TimeCreated, Id, Message | Format-List
+          if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
