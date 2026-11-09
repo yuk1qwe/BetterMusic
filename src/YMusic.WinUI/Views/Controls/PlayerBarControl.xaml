@@ -1,0 +1,664 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="YMusic.WinUI.Views.Controls.PlayerBarControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:YMusic.WinUI.Models"
+    xmlns:vm="using:YMusic.WinUI.ViewModels"
+    xmlns:helpers="using:YMusic.WinUI.Helpers"
+    xmlns:controls="using:YMusic.WinUI.Views.Controls"
+    Loaded="UserControl_Loaded"
+    mc:Ignorable="d">
+
+    <Grid Height="88"
+          Padding="16,4,16,6"
+          BorderThickness="0,1,0,0"
+          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+          Background="{ThemeResource LayerFillColorDefaultBrush}">
+        
+        <Grid.ColumnDefinitions>
+            <!-- Left: Current Track Details -->
+            <ColumnDefinition Width="320" />
+            <!-- Center: Controls & Seek Bar -->
+            <ColumnDefinition Width="*" />
+            <!-- Right: Volume & Extra -->
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 1. Track Info (Left) -->
+        <Grid Grid.Column="0" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="52" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="38" />
+                <ColumnDefinition Width="38" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Album Art (Clickable to open Now Playing Drawer with visual hover feedback) -->
+            <Button Grid.Column="0"
+                    Command="{x:Bind ViewModel.ToggleNowPlayingDrawerCommand}"
+                    Padding="0"
+                    Width="52"
+                    Height="52"
+                    CornerRadius="6"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    helpers:CursorHelper.UseHandCursor="True"
+                    PointerEntered="CoverButton_PointerEntered"
+                    PointerExited="CoverButton_PointerExited"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.LyricsDrawerTooltip, Mode=OneWay}">
+                <Border Width="52"
+                        Height="52"
+                        CornerRadius="6"
+                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                        IsHitTestVisible="False">
+                    <Grid>
+                        <FontIcon Glyph="&#xE8D6;"
+                                  FontSize="24"
+                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center" />
+                        <Image Source="{x:Bind ViewModel.CoverUrl, Mode=OneWay, Converter={StaticResource StringToImageSourceConverter}}"
+                               Stretch="UniformToFill" />
+
+                        <!-- Hover Overlay (Yandex Music style: dark tint + expand/lyrics chevron) -->
+                        <Border x:Name="CoverHoverOverlay"
+                                Background="#90000000"
+                                CornerRadius="6"
+                                Opacity="0"
+                                IsHitTestVisible="False">
+                            <Border.OpacityTransition>
+                                <ScalarTransition Duration="0:0:0.18" />
+                            </Border.OpacityTransition>
+                            <FontIcon Glyph="&#xE70E;"
+                                      FontSize="18"
+                                      Foreground="White"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+            </Button>
+
+            <!-- Title & Artist (Click title to open album, artist to open artist card) -->
+            <Grid Grid.Column="1"
+                  Margin="12,0,8,0"
+                  VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <!-- Row 0: Track Title (Marquee) and FckCensor Badge -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <controls:MarqueeTextControl Grid.Column="0"
+                                                 Text="{x:Bind ViewModel.TrackTitle, Mode=OneWay}"
+                                                 FontSize="14"
+                                                 FontWeight="SemiBold"
+                                                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                 Command="{x:Bind ViewModel.OpenCurrentAlbumCommand}"
+                                                 ToolTipService.ToolTip="{x:Bind ViewModel.TrackTitle, Mode=OneWay}" />
+
+                    <!-- Badges (FCK & AI) -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Replaced by FckCensor Badge -->
+                        <Border Margin="6,0,0,0"
+                                Visibility="{x:Bind ViewModel.IsCurrentTrackReplaced, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                Padding="5,1.5"
+                                CornerRadius="4"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.FckBadgeTooltip, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE70F;" FontSize="9" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                <TextBlock Text="FCK" FontSize="10" FontWeight="Bold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Slopless AI Music Badge -->
+                        <Border Margin="6,0,0,0"
+                                Visibility="{x:Bind ViewModel.CurrentTrack.IsAiTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                Padding="5,1.5"
+                                CornerRadius="4"
+                                Background="#26EF4444"
+                                BorderBrush="#80EF4444"
+                                BorderThickness="1"
+                                VerticalAlignment="Center"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.CurrentTrack.AiTooltip, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE99A;" FontSize="9" Foreground="#FFEF4444" />
+                                <TextBlock Text="{x:Bind ViewModel.CurrentTrack.AiBadgeLabel, Mode=OneWay}" FontSize="10" FontWeight="Bold" Foreground="#FFEF4444" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+                <HyperlinkButton x:Name="PlayerArtistButton"
+                                 Grid.Row="1"
+                                 Command="{x:Bind ViewModel.OpenCurrentArtistCommand}"
+                                 CommandParameter="{x:Bind PlayerArtistButton}"
+                                 Padding="0"
+                                 Margin="0,2,0,0"
+                                 HorizontalAlignment="Left"
+                                 HorizontalContentAlignment="Left"
+                                 helpers:CursorHelper.UseHandCursor="True"
+                                 ToolTipService.ToolTip="{x:Bind ViewModel.ArtistInfoTooltip, Mode=OneWay}">
+                    <TextBlock Text="{x:Bind ViewModel.ArtistNames, Mode=OneWay}"
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               MaxLines="1"
+                               IsHitTestVisible="False" />
+                </HyperlinkButton>
+            </Grid>
+
+            <!-- Like Button in Track Info -->
+            <Button Grid.Column="2"
+                    Command="{x:Bind ViewModel.ToggleLikeCommand}"
+                    Width="36"
+                    Height="36"
+                    Padding="0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    CornerRadius="18"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    helpers:CursorHelper.UseHandCursor="True"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.LikeTooltip, Mode=OneWay}">
+                <FontIcon Glyph="{x:Bind ViewModel.LikeGlyph, Mode=OneWay}"
+                          FontSize="18"
+                          Foreground="{x:Bind ViewModel.LikeBrush, Mode=OneWay}" />
+            </Button>
+
+            <!-- More Options / FckCensor Button -->
+            <Button Grid.Column="3"
+                    Width="36"
+                    Height="36"
+                    Padding="0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    CornerRadius="18"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    helpers:CursorHelper.UseHandCursor="True"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.FckOptionsTooltip, Mode=OneWay}"
+                    Margin="2,0,0,0">
+                <Button.Flyout>
+                    <MenuFlyout x:Name="TrackOptionsFlyout" Opening="TrackOptionsFlyout_Opening">
+                        <!-- Start Wave by Track -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.StartTrackWaveMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.StartTrackWaveCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE93E;" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- Play Next -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.PlayNextMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.PlayNextCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE892;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- Add to Queue -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.AddToQueueMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.AddToQueueCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xEA37;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <MenuFlyoutSeparator Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                        <!-- Dislike -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.DislikeMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.DislikeAndSkipCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="{x:Bind ViewModel.DislikeMenuGlyph, Mode=OneWay}" Foreground="#FF5555" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- Add to Playlist (Submenu) -->
+                        <MenuFlyoutSubItem x:Name="AddToPlaylistSubItem"
+                                           Text="{x:Bind ViewModel.AddToPlaylistMenuText, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutSubItem.Icon>
+                                <FontIcon Glyph="&#xE8F4;" />
+                            </MenuFlyoutSubItem.Icon>
+                            <MenuFlyoutItem Text="..." IsEnabled="False" />
+                        </MenuFlyoutSubItem>
+
+                        <!-- Share -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.ShareMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.ShareTrackCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE72D;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- Download to file -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.DownloadFileMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.DownloadTrackFileCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE896;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- Track details -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.TrackDetailsMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.ShowTrackDetailsCommand}"
+                                        Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE946;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <MenuFlyoutSeparator Visibility="{x:Bind ViewModel.HasTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                        <!-- When Replaced: Remove replacement -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.FckRemoveReplacementText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.RemoveCurrentTrackReplacementCommand}"
+                                        Visibility="{x:Bind ViewModel.IsCurrentTrackReplaced, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE74D;" Foreground="#FF5555" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        
+                        <!-- When Replaced: Change with another file -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.FckChooseAnotherFileText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.ReplaceCurrentTrackCommand}"
+                                        Visibility="{x:Bind ViewModel.IsCurrentTrackReplaced, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE70F;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- When Not Replaced: Replace Track -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.FckReplaceTrackText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.ReplaceCurrentTrackCommand}"
+                                        Visibility="{x:Bind ViewModel.IsCurrentTrackReplaced, Mode=OneWay, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE70F;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+
+                        <!-- When Not Replaced: Report Censorship -->
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.FckReportCensorshipText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.ReportCurrentTrackCensorshipCommand}"
+                                        Visibility="{x:Bind ViewModel.CanReportCurrentTrack, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE7BA;" Foreground="#FFB900" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </Button.Flyout>
+                <FontIcon Glyph="&#xE712;" FontSize="16" />
+            </Button>
+        </Grid>
+
+        <!-- 2. Center: Playback Controls & Progress Bar -->
+        <StackPanel Grid.Column="1"
+                    MaxWidth="600"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center">
+            
+            <!-- Controls buttons -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+                
+                <!-- Shuffle -->
+                <Button Command="{x:Bind ViewModel.ToggleShuffleCommand}"
+                        Width="36"
+                        Height="36"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        CornerRadius="18"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        helpers:CursorHelper.UseHandCursor="True"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.ShuffleTooltip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE8B1;"
+                              FontSize="16"
+                              Foreground="{x:Bind ViewModel.IsShuffle, Mode=OneWay, Converter={StaticResource BoolToAccentBrushConverter}}" />
+                </Button>
+
+                <!-- Previous -->
+                <Button Command="{x:Bind ViewModel.PreviousCommand}"
+                        Width="36"
+                        Height="36"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        CornerRadius="18"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        helpers:CursorHelper.UseHandCursor="True"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.PreviousTooltip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE892;" FontSize="16" />
+                </Button>
+
+                <!-- Play / Pause -->
+                <Button Command="{x:Bind ViewModel.TogglePlayPauseCommand}"
+                        Width="44"
+                        Height="44"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        CornerRadius="22"
+                        Style="{ThemeResource AccentButtonStyle}"
+                        helpers:CursorHelper.UseHandCursor="True"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.PlayPauseTooltip, Mode=OneWay}">
+                    <FontIcon Glyph="{x:Bind ViewModel.PlayPauseGlyph, Mode=OneWay}"
+                              FontSize="18"
+                              Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                </Button>
+
+                <!-- Next -->
+                <Button Command="{x:Bind ViewModel.NextCommand}"
+                        Width="36"
+                        Height="36"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        CornerRadius="18"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        helpers:CursorHelper.UseHandCursor="True"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.NextTooltip, Mode=OneWay}">
+                    <FontIcon Glyph="&#xE893;" FontSize="16" />
+                </Button>
+
+                <!-- Repeat -->
+                <Button Command="{x:Bind ViewModel.CycleRepeatModeCommand}"
+                        Width="36"
+                        Height="36"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        CornerRadius="18"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        helpers:CursorHelper.UseHandCursor="True"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.RepeatTooltip, Mode=OneWay}">
+                    <FontIcon Glyph="{x:Bind ViewModel.RepeatGlyph, Mode=OneWay}"
+                              FontSize="16"
+                              Foreground="{x:Bind ViewModel.RepeatMode, Mode=OneWay, Converter={StaticResource RepeatToAccentBrushConverter}}" />
+                </Button>
+            </StackPanel>
+
+            <!-- Progress bar slider -->
+            <Grid Margin="0,2,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="42" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="42" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0"
+                           Text="{x:Bind ViewModel.FormattedPosition, Mode=OneWay}"
+                           FontSize="11"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center" />
+
+                <Slider x:Name="SeekSlider"
+                        Grid.Column="1"
+                        Margin="8,0"
+                        Minimum="0"
+                        Maximum="{x:Bind ViewModel.DurationSeconds, Mode=OneWay}"
+                        Value="{x:Bind ViewModel.PositionSeconds, Mode=OneWay}"
+                        ThumbToolTipValueConverter="{StaticResource SecondsToTimeConverter}"
+                        VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="2"
+                           Text="{x:Bind ViewModel.FormattedDuration, Mode=OneWay}"
+                           FontSize="11"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </StackPanel>
+
+        <!-- 3. Right: Volume & Quality Controls -->
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Spacing="8">
+            
+            <!-- Now Playing & Karaoke Lyrics Toggle Button -->
+            <Button Command="{x:Bind ViewModel.ToggleNowPlayingDrawerCommand}"
+                    Visibility="{x:Bind ViewModel.ShowLyricsButton, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Width="36"
+                    Height="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Background="{x:Bind ViewModel.IsNowPlayingDrawerOpen, Mode=OneWay, Converter={StaticResource BoolToSubtleHighlightBrushConverter}}"
+                    BorderBrush="Transparent"
+                    helpers:CursorHelper.UseHandCursor="True"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.LyricsDrawerTooltip, Mode=OneWay}">
+                <FontIcon Glyph="&#xEC4F;"
+                          FontSize="16"
+                          Foreground="{x:Bind ViewModel.IsNowPlayingDrawerOpen, Mode=OneWay, Converter={StaticResource BoolToAccentBrushConverter}}" />
+            </Button>
+
+            <!-- Audio Quality Pill & Selector Flyout -->
+            <Button Visibility="{x:Bind ViewModel.ShowQualityBadge, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Height="28"
+                    MinWidth="52"
+                    Padding="10,2"
+                    CornerRadius="6"
+                    HorizontalContentAlignment="Center"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    helpers:CursorHelper.UseHandCursor="True"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.QualityTooltip, Mode=OneWay}">
+                <TextBlock Text="{x:Bind ViewModel.QualityBadge, Mode=OneWay}"
+                           FontSize="11"
+                           FontWeight="Bold"
+                           TextAlignment="Center"
+                           Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Button.Flyout>
+                    <MenuFlyout Placement="Top">
+                        <MenuFlyoutItem Text="AAC (High Quality, 192–256 kbps)"
+                                        Command="{x:Bind ViewModel.SetAudioQualityPreferenceCommand}"
+                                        CommandParameter="AacPreferred" />
+                        <MenuFlyoutItem Text="MP3 (High Quality, 320 kbps)"
+                                        Command="{x:Bind ViewModel.SetAudioQualityPreferenceCommand}"
+                                        CommandParameter="Mp3Preferred" />
+                        <MenuFlyoutItem Text="{x:Bind ViewModel.BestBitrateMenuText, Mode=OneWay}"
+                                        Command="{x:Bind ViewModel.SetAudioQualityPreferenceCommand}"
+                                        CommandParameter="HighestBitrate" />
+                    </MenuFlyout>
+                </Button.Flyout>
+            </Button>
+
+            <!-- Equalizer Button & Flyout -->
+            <Button Visibility="{x:Bind ViewModel.ShowEqualizerButton, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Width="36"
+                    Height="36"
+                    CornerRadius="18"
+                    Padding="0"
+                    HorizontalContentAlignment="Center"
+                    VerticalContentAlignment="Center"
+                    Background="Transparent"
+                    BorderBrush="Transparent"
+                    helpers:CursorHelper.UseHandCursor="True"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.AudioEqualizerTooltip, Mode=OneWay}">
+                <FontIcon Glyph="&#xE9E9;"
+                          FontSize="16"
+                          Foreground="{x:Bind ViewModel.IsEqualizerEnabled, Mode=OneWay, Converter={StaticResource BoolToAccentBrushConverter}}" />
+                <Button.Flyout>
+                    <Flyout Placement="Top">
+                        <Flyout.FlyoutPresenterStyle>
+                            <Style TargetType="FlyoutPresenter">
+                                <Setter Property="MinWidth" Value="540" />
+                                <Setter Property="MaxWidth" Value="560" />
+                                <Setter Property="Padding" Value="14" />
+                            </Style>
+                        </Flyout.FlyoutPresenterStyle>
+                        <StackPanel Width="520" Spacing="14">
+                            <!-- Top Bar: Title on Left, Toggle & Reset on Right -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE9E9;" FontSize="18" Foreground="{ThemeResource AccentFillColorDefaultBrush}" />
+                                    <TextBlock Text="{x:Bind ViewModel.EqualizerTitle, Mode=OneWay}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                    <ToggleSwitch IsOn="{x:Bind ViewModel.IsEqualizerEnabled, Mode=TwoWay}"
+                                                  OnContent="{x:Bind ViewModel.ToggleOnContent, Mode=OneWay}"
+                                                  OffContent="{x:Bind ViewModel.ToggleOffContent, Mode=OneWay}"
+                                                  Margin="0" />
+
+                                    <Button Command="{x:Bind ViewModel.ResetEqualizerCommand}"
+                                            Content="{x:Bind ViewModel.EqualizerResetText, Mode=OneWay}"
+                                            Height="32"
+                                            Padding="14,0"
+                                            helpers:CursorHelper.UseHandCursor="True"
+                                            ToolTipService.ToolTip="{x:Bind ViewModel.EqualizerResetTooltip, Mode=OneWay}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Preset Selector Row -->
+                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind ViewModel.EqualizerPresetLabel, Mode=OneWay}"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <ComboBox ItemsSource="{x:Bind ViewModel.EqualizerPresetNames}"
+                                          SelectedItem="{x:Bind ViewModel.CurrentEqualizerPresetName, Mode=TwoWay}"
+                                          Width="160"
+                                          Height="32"
+                                          VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <!-- 10 Frequency Sliders -->
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.EqualizerBands}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:EqualizerBand">
+                                        <StackPanel HorizontalAlignment="Center" Spacing="4" Width="46">
+                                            <TextBlock Text="{x:Bind FormattedGain, Mode=OneWay}"
+                                                       FontSize="10"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       HorizontalAlignment="Center" />
+                                            <Slider Orientation="Vertical"
+                                                    Height="120"
+                                                    Minimum="-12"
+                                                    Maximum="12"
+                                                    StepFrequency="0.5"
+                                                    SmallChange="0.5"
+                                                    LargeChange="2"
+                                                    IsThumbToolTipEnabled="False"
+                                                    Value="{x:Bind Gain, Mode=TwoWay}"
+                                                    HorizontalAlignment="Center" />
+                                            <TextBlock Text="{x:Bind Label}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+            <!-- Volume Container with Mouse Wheel Support -->
+            <StackPanel x:Name="VolumeContainer"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Spacing="6">
+                <!-- Mute / Unmute Button -->
+                <Button Command="{x:Bind ViewModel.ToggleMuteCommand}"
+                        Width="36"
+                        Height="36"
+                        CornerRadius="18"
+                        Padding="0"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        helpers:CursorHelper.UseHandCursor="True"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.MuteTooltip, Mode=OneWay}">
+                    <FontIcon Glyph="{x:Bind ViewModel.VolumeGlyph, Mode=OneWay}" FontSize="16" />
+                </Button>
+
+                <!-- Longer, precise Volume Slider -->
+                <Slider x:Name="VolumeSlider"
+                        Width="{x:Bind ViewModel.VolumeSliderWidth, Mode=OneWay}"
+                        Minimum="0"
+                        Maximum="100"
+                        StepFrequency="1"
+                        SmallChange="2"
+                        LargeChange="5"
+                        IsThumbToolTipEnabled="False"
+                        Value="{x:Bind ViewModel.Volume, Mode=TwoWay}"
+                        VerticalAlignment="Center"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.VolumeTooltip, Mode=OneWay}" />
+
+                <!-- Interactive Volume Percentage (Clean TextBlock, turns into compact editor on click) -->
+                <Grid Width="38" Height="24" VerticalAlignment="Center" Margin="2,0,0,0">
+                    <Border x:Name="VolumePercentageBadge"
+                            CornerRadius="4"
+                            Background="Transparent"
+                            Padding="2,2"
+                            helpers:CursorHelper.UseHandCursor="True"
+                            ToolTipService.ToolTip="{x:Bind ViewModel.VolumeInputTooltip, Mode=OneWay}"
+                            PointerPressed="VolumePercentageBadge_PointerPressed">
+                        <TextBlock x:Name="VolumePercentageLabel"
+                                   Text="{x:Bind ViewModel.VolumePercentageText, Mode=OneWay}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+
+                    <TextBox x:Name="VolumePercentageBox"
+                             Width="38"
+                             Height="24"
+                             MinHeight="0"
+                             Padding="0"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             TextAlignment="Center"
+                             CornerRadius="4"
+                             VerticalAlignment="Center"
+                             VerticalContentAlignment="Center"
+                             Visibility="Collapsed"
+                             LostFocus="VolumePercentageBox_LostFocus"
+                             KeyDown="VolumePercentageBox_KeyDown" />
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>

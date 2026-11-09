@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "YMusic.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "YMusic.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

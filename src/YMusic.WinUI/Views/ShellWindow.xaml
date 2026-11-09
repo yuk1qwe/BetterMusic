@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Window
+    x:Class="YMusic.WinUI.Views.ShellWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:YMusic.WinUI.Views.Controls"
+    xmlns:vm="using:YMusic.WinUI.ViewModels"
+    Title="WinYandex"
+    mc:Ignorable="d">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <!-- Title Bar -->
+            <RowDefinition Height="Auto" />
+            <!-- Main Content: Navigation & Pages -->
+            <RowDefinition Height="*" />
+            <!-- Fixed Bottom Player Bar -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- TitleBar -->
+        <TitleBar x:Name="AppTitleBar"
+                  Title="WinYandex">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="Assets/AppIcon.ico" />
+            </TitleBar.IconSource>
+        </TitleBar>
+
+        <!-- NavigationView -->
+        <NavigationView x:Name="NavView"
+                        Grid.Row="1"
+                        PaneDisplayMode="Left"
+                        OpenPaneLength="250"
+                        CompactPaneLength="48"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False"
+                        ItemInvoked="NavView_ItemInvoked"
+                        SelectionChanged="NavView_SelectionChanged">
+            
+            <NavigationView.AutoSuggestBox>
+                <AutoSuggestBox x:Name="NavAutoSuggestBox"
+                                QueryIcon="Find"
+                                Visibility="{x:Bind ViewModel.SearchNavVisibility, Mode=OneWay}"
+                                PlaceholderText="{x:Bind ViewModel.SearchPlaceholderText, Mode=OneWay}"
+                                GotFocus="NavAutoSuggestBox_GotFocus"
+                                TextChanged="NavAutoSuggestBox_TextChanged"
+                                QuerySubmitted="NavAutoSuggestBox_QuerySubmitted"
+                                SuggestionChosen="NavAutoSuggestBox_SuggestionChosen" />
+            </NavigationView.AutoSuggestBox>
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="NavItemExplore"
+                                    Content="{x:Bind ViewModel.NavExploreText, Mode=OneWay}"
+                                    Tag="Explore">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavItemSearch"
+                                    Visibility="{x:Bind ViewModel.SearchNavVisibility, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.NavSearchText, Mode=OneWay}"
+                                    Tag="Search">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE721;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavItemWave"
+                                    Visibility="{x:Bind ViewModel.WaveNavVisibility, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.NavWaveText, Mode=OneWay}"
+                                    Tag="Wave">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE93E;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavItemLikes"
+                                    Visibility="{x:Bind ViewModel.LikesNavVisibility, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.NavLikesText, Mode=OneWay}"
+                                    Tag="Likes">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEB52;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavItemPlaylists"
+                                    Visibility="{x:Bind ViewModel.PlaylistsNavVisibility, Mode=OneWay}"
+                                    Content="{x:Bind ViewModel.NavPlaylistsText, Mode=OneWay}"
+                                    Tag="Playlists">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE142;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="NavItemAccount"
+                                    Content="{x:Bind ViewModel.AccountNavItemTitle, Mode=OneWay}"
+                                    Tag="Account">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE77B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Update Notification Banner -->
+                <InfoBar x:Name="UpdateInfoBar"
+                         IsOpen="{x:Bind ViewModel.IsUpdateBannerOpen, Mode=OneWay}"
+                         Severity="Informational"
+                         Title="{x:Bind ViewModel.UpdateBannerTitle, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.UpdateBannerMessage, Mode=OneWay}"
+                         IsClosable="True"
+                         CloseButtonClick="UpdateInfoBar_CloseButtonClick">
+                    <InfoBar.ActionButton>
+                        <Button Content="{x:Bind ViewModel.UpdateBannerButtonText, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.OpenUpdatesCommand}"
+                                Padding="12,6"
+                                Margin="0,0,8,0"
+                                CornerRadius="4" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
+                <Frame x:Name="ContentFrame" Grid.Row="1">
+                    <Frame.ContentTransitions>
+                        <TransitionCollection>
+                            <NavigationThemeTransition />
+                        </TransitionCollection>
+                    </Frame.ContentTransitions>
+                </Frame>
+            </Grid>
+        </NavigationView>
+
+        <!-- Fixed Bottom Player Bar (Hidden when Now Playing Drawer is open) -->
+        <controls:PlayerBarControl Grid.Row="2"
+                                   x:Name="BottomPlayerBar" />
+
+        <!-- Now Playing & Karaoke Lyrics Drawer Overlay (Full Window Immersion, spans all rows 0..2) -->
+        <controls:NowPlayingDrawerControl Grid.Row="0"
+                                          Grid.RowSpan="3"
+                                          x:Name="NowPlayingDrawer" />
+
+        <!-- Global Toast Notification Pill -->
+        <Border Grid.Row="0"
+                Grid.RowSpan="3"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Bottom"
+                Margin="0,0,0,104"
+                Padding="16,10"
+                CornerRadius="20"
+                Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Visibility="{x:Bind ViewModel.PlayerBar.ToastVisibility, Mode=OneWay}"
+                Canvas.ZIndex="99999"
+                IsHitTestVisible="False">
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Border Width="22" Height="22" CornerRadius="11" Background="{ThemeResource AccentFillColorDefaultBrush}">
+                    <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="{x:Bind ViewModel.PlayerBar.ToastMessage, Mode=OneWay}" 
+                           FontSize="13" 
+                           FontWeight="SemiBold"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

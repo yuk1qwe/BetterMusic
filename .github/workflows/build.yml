@@ -1,0 +1,31 @@
+name: Windows build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore src/YMusic.WinUI/YMusic.WinUI.csproj -r win-x64 -p:Platform=x64
+      - name: Build
+        run: dotnet build src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --no-restore
+      - name: Publish portable application
+        run: dotnet publish src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true --no-restore -o dist/portable
+      - name: Package
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE dist/portable/LICENSE.txt
+          Compress-Archive -Path dist/portable/* -DestinationPath dist/BetterMusic-win-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BetterMusic-win-x64
+          path: dist/BetterMusic-win-x64.zip
+          if-no-files-found: error
