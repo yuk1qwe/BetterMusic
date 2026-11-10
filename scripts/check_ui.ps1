@@ -3,6 +3,19 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type @'
+using System.Runtime.InteropServices;
+public static class UiMouse {
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, System.UIntPtr extraInfo);
+}
+'@
+function Click-Element($element) {
+    $r = $element.Current.BoundingRectangle
+    [UiMouse]::SetCursorPos([int]($r.Left + $r.Width/2), [int]($r.Top + $r.Height/2)) | Out-Null
+    [UiMouse]::mouse_event(2, 0, 0, 0, [UIntPtr]::Zero)
+    [UiMouse]::mouse_event(4, 0, 0, 0, [UIntPtr]::Zero)
+}
 $exe = (Resolve-Path dist/portable/BetterMusic.exe).Path
 $app = Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) -PassThru
 try {
@@ -46,22 +59,22 @@ try {
   $expand = $null
   foreach ($x in $all) { if ($x.Current.Name -eq 'Ввести токен вручную' -and $x.Current.ControlType.ProgrammaticName -eq 'ControlType.Button') { $expand = $x; break } }
   if ($expand) {
-    $expand.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Click-Element $expand
     Start-Sleep -Seconds 2
     Write-Host 'CLICKED Manual token expander'
     EnumerateControls
     Capture 'manual_token'
-    $expand.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Click-Element $expand
   } else { Write-Host 'MANUAL_EXPANDER_NOT_FOUND' }
   $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
   $pane = $null
   foreach ($x in $all) { if ($x.Current.AutomationId -eq 'TogglePaneButton') { $pane = $x; break } }
   if ($pane) {
-    $pane.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Click-Element $pane
     Start-Sleep -Seconds 2
     Write-Host 'CLICKED Collapse sidebar'
     Capture 'sidebar_closed'
-    $pane.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Click-Element $pane
     Start-Sleep -Seconds 1
     Write-Host 'CLICKED Expand sidebar'
   }
