@@ -43,6 +43,29 @@ try {
   EnumerateControls
   Capture 'initial'
   $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+  $expand = $null
+  foreach ($x in $all) { if ($x.Current.Name -eq 'Ввести токен вручную' -and $x.Current.ControlType.ProgrammaticName -eq 'ControlType.Button') { $expand = $x; break } }
+  if ($expand) {
+    $expand.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Seconds 2
+    Write-Host 'CLICKED Manual token expander'
+    EnumerateControls
+    Capture 'manual_token'
+    $expand.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  } else { Write-Host 'MANUAL_EXPANDER_NOT_FOUND' }
+  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+  $pane = $null
+  foreach ($x in $all) { if ($x.Current.AutomationId -eq 'TogglePaneButton') { $pane = $x; break } }
+  if ($pane) {
+    $pane.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Seconds 2
+    Write-Host 'CLICKED Collapse sidebar'
+    Capture 'sidebar_closed'
+    $pane.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Seconds 1
+    Write-Host 'CLICKED Expand sidebar'
+  }
+  $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
   $target = $null
   foreach ($x in $all) { if ($x.Current.AutomationId -eq 'SignInWithBrowserButton') { $target = $x; break } }
   if (!$target) { throw 'Browser sign-in button not found in accessibility tree' }
