@@ -25,7 +25,8 @@ try {
     $bmp.Save($path,[System.Drawing.Imaging.ImageFormat]::Png)
     $g.Dispose(); $bmp.Dispose()
     Write-Host "SCREENSHOT_${name}_BEGIN"
-    Write-Host ([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)))
+    $encoded = [Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+    for ($offset = 0; $offset -lt $encoded.Length; $offset += 1000) { Write-Host ("IMGCHUNK " + $encoded.Substring($offset, [Math]::Min(1000, $encoded.Length - $offset))) }
     Write-Host "SCREENSHOT_${name}_END"
   }
   function EnumerateControls {
