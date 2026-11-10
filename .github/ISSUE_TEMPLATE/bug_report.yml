@@ -1,0 +1,48 @@
+name: Сообщение об ошибке (Bug Report)
+description: Создать отчёт об ошибке или сбое в работе WinYandex
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что помогаете делать WinYandex лучше! Пожалуйста, опишите проблему как можно подробнее.
+  - type: input
+    id: version
+    attributes:
+      label: Версия приложения
+      placeholder: "например, v0.9.0"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Версия Windows
+      placeholder: "например, Windows 11 23H2 (сборка 22631)"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание проблемы
+      description: Что именно пошло не так?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги для воспроизведения
+      description: Опишите шаги, приводящие к ошибке
+      placeholder: |
+        1. Открыть '...'
+        2. Нажать на '...'
+        3. Наблюдать ошибку '...'
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+      description: Что должно было произойти?
+    validations:
+      required: true

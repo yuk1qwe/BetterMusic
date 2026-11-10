@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="YMusic.WinUI.Views.Controls.MarqueeTextControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:helpers="using:YMusic.WinUI.Helpers"
+    Loaded="OnLoaded"
+    Unloaded="OnUnloaded"
+    SizeChanged="OnSizeChanged"
+    mc:Ignorable="d">
+
+    <Grid x:Name="RootGrid"
+          Background="Transparent"
+          VerticalAlignment="Center"
+          HorizontalAlignment="Stretch"
+          PointerPressed="OnRootPointerPressed"
+          PointerEntered="OnRootPointerEntered"
+          PointerExited="OnRootPointerExited">
+
+        <!-- Measurement Block: Provides natural vertical line-height for the UserControl -->
+        <TextBlock x:Name="MeasurementBlock"
+                   Text="Hg"
+                   FontSize="{x:Bind FontSize, Mode=OneWay}"
+                   FontWeight="{x:Bind FontWeight, Mode=OneWay}"
+                   Opacity="0"
+                   IsHitTestVisible="False" />
+
+        <!-- Canvas with unconstrained child measurement for full text rendering -->
+        <Canvas x:Name="TextCanvas"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                IsHitTestVisible="False">
+            <TextBlock x:Name="DisplayBlock"
+                       Text="{x:Bind Text, Mode=OneWay}"
+                       FontSize="{x:Bind FontSize, Mode=OneWay}"
+                       FontWeight="{x:Bind FontWeight, Mode=OneWay}"
+                       Foreground="{x:Bind Foreground, Mode=OneWay}"
+                       Canvas.Left="0"
+                       Canvas.Top="0">
+                <TextBlock.RenderTransform>
+                    <TranslateTransform x:Name="TextTransform" />
+                </TextBlock.RenderTransform>
+            </TextBlock>
+        </Canvas>
+    </Grid>
+</UserControl>

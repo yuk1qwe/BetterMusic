@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="YMusic.WinUI.Views.Controls.MiniEqualizerControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <Storyboard x:Name="BarsStoryboard">
+            <DoubleAnimation
+                Storyboard.TargetName="Bar1Scale"
+                Storyboard.TargetProperty="ScaleY"
+                From="0.20" To="0.95"
+                Duration="0:0:0.42"
+                AutoReverse="True"
+                RepeatBehavior="Forever"
+                EnableDependentAnimation="True">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="Bar2Scale"
+                Storyboard.TargetProperty="ScaleY"
+                From="0.85" To="0.20"
+                Duration="0:0:0.32"
+                AutoReverse="True"
+                RepeatBehavior="Forever"
+                EnableDependentAnimation="True">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="Bar3Scale"
+                Storyboard.TargetProperty="ScaleY"
+                From="0.30" To="1.00"
+                Duration="0:0:0.50"
+                AutoReverse="True"
+                RepeatBehavior="Forever"
+                EnableDependentAnimation="True">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="Bar4Scale"
+                Storyboard.TargetProperty="ScaleY"
+                From="0.75" To="0.25"
+                Duration="0:0:0.37"
+                AutoReverse="True"
+                RepeatBehavior="Forever"
+                EnableDependentAnimation="True">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </UserControl.Resources>
+
+    <Grid Width="22" Height="22" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="2"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Height="15">
+            <Rectangle x:Name="Bar1"
+                       Width="2.5"
+                       Height="14"
+                       RadiusX="1.25"
+                       RadiusY="1.25"
+                       Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                       VerticalAlignment="Bottom"
+                       RenderTransformOrigin="0.5, 1">
+                <Rectangle.RenderTransform>
+                    <ScaleTransform x:Name="Bar1Scale" ScaleY="0.30" />
+                </Rectangle.RenderTransform>
+            </Rectangle>
+
+            <Rectangle x:Name="Bar2"
+                       Width="2.5"
+                       Height="14"
+                       RadiusX="1.25"
+                       RadiusY="1.25"
+                       Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                       VerticalAlignment="Bottom"
+                       RenderTransformOrigin="0.5, 1">
+                <Rectangle.RenderTransform>
+                    <ScaleTransform x:Name="Bar2Scale" ScaleY="0.75" />
+                </Rectangle.RenderTransform>
+            </Rectangle>
+
+            <Rectangle x:Name="Bar3"
+                       Width="2.5"
+                       Height="14"
+                       RadiusX="1.25"
+                       RadiusY="1.25"
+                       Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                       VerticalAlignment="Bottom"
+                       RenderTransformOrigin="0.5, 1">
+                <Rectangle.RenderTransform>
+                    <ScaleTransform x:Name="Bar3Scale" ScaleY="0.45" />
+                </Rectangle.RenderTransform>
+            </Rectangle>
+
+            <Rectangle x:Name="Bar4"
+                       Width="2.5"
+                       Height="14"
+                       RadiusX="1.25"
+                       RadiusY="1.25"
+                       Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                       VerticalAlignment="Bottom"
+                       RenderTransformOrigin="0.5, 1">
+                <Rectangle.RenderTransform>
+                    <ScaleTransform x:Name="Bar4Scale" ScaleY="0.20" />
+                </Rectangle.RenderTransform>
+            </Rectangle>
+        </StackPanel>
+    </Grid>
+</UserControl>

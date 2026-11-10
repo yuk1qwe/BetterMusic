@@ -1,0 +1,115 @@
+name: Windows build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore src/YMusic.WinUI/YMusic.WinUI.csproj -r win-x64 -p:Platform=x64
+      - name: Inspect dependencies for known vulnerabilities
+        run: dotnet list src/YMusic.WinUI/YMusic.WinUI.csproj package --vulnerable --include-transitive
+      - name: Build
+        run: dotnet build src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --no-restore
+      - name: Publish portable application
+        run: dotnet publish src/YMusic.WinUI/YMusic.WinUI.csproj -c Release -r win-x64 -p:Platform=x64 --self-contained true --no-restore -o dist/portable
+      - name: Scan published files with Microsoft Defender
+        shell: pwsh
+        run: |
+          $status = Get-MpComputerStatus
+          if (-not $status.AntivirusEnabled) { throw "Microsoft Defender antivirus is unavailable on the runner" }
+          Write-Host "Antivirus engine: $($status.AMEngineVersion); signatures: $($status.AntivirusSignatureVersion)"
+          $scanner = Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $scanner) { throw "Defender command-line scanner not found" }
+          & $scanner.FullName -Scan -ScanType 3 -File (Resolve-Path dist/portable).Path -DisableRemediation
+          if ($LASTEXITCODE -ne 0) { throw "Defender scan failed or detected a threat (exit code $LASTEXITCODE)" }
+          Write-Host "Defender scan completed without detected threats."
+      - name: Package
+        shell: pwsh
+        run: |
+          Copy-Item LICENSE dist/portable/LICENSE.txt
+          Set-Content -Path "dist/portable/КАК ЗАПУСТИТЬ.txt" -Encoding UTF8 -Value "Запустите BetterMusic.exe. Остальные файлы нужны для работы программы — оставьте их в этой папке."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BetterMusic-win-x64
+          path: dist/portable/
+          if-no-files-found: error
+  sandbox-observation:
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download build from this run
+        uses: actions/download-artifact@v4
+        with:
+          name: BetterMusic-win-x64
+          path: sandbox-artifact
+      - name: Launch in clean Windows runner and observe
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path sandbox-artifact/BetterMusic.exe).Path
+          $appDirectory = Split-Path $exe
+          $dnsBefore = @(Get-DnsClientCache | ForEach-Object Entry)
+          $startedAt = Get-Date
+          $app = Start-Process -FilePath $exe -WorkingDirectory $appDirectory -PassThru
+          Write-Host "Started BetterMusic PID $($app.Id); observation 30 seconds; no account or credentials."
+          $seenConnections = @{}
+          $seenProcesses = @{}
+          $tracked = @($app.Id)
+          for ($i = 0; $i -lt 30; $i++) {
+            $all = @(Get-CimInstance Win32_Process)
+            foreach ($p in $all) {
+              if ($p.ParentProcessId -in $tracked -and $p.ProcessId -notin $tracked) { $tracked += $p.ProcessId }
+            }
+            foreach ($p in $all | Where-Object { $_.ProcessId -in $tracked }) {
+              $seenProcesses[$p.ProcessId] = "$($p.Name) PID=$($p.ProcessId) parent=$($p.ParentProcessId)"
+            }
+            foreach ($pidValue in $tracked) {
+              foreach ($c in @(Get-NetTCPConnection -OwningProcess $pidValue -ErrorAction SilentlyContinue)) {
+                $key = "$($c.OwningProcess) $($c.RemoteAddress):$($c.RemotePort) $($c.State)"
+                $seenConnections[$key] = $true
+              }
+            }
+            Start-Sleep -Seconds 1
+          }
+          $app.Refresh()
+          Write-Host "Process still running: $(-not $app.HasExited)"
+          if ($app.HasExited) { Write-Host "Exit code: $($app.ExitCode)" } else { Write-Host "Window title: $($app.MainWindowTitle)" }
+          Write-Host 'Observed app and child processes:'
+          $seenProcesses.Values | Sort-Object | ForEach-Object { Write-Host $_ }
+          Write-Host 'Observed TCP endpoints for tracked processes:'
+          if ($seenConnections.Count -eq 0) { Write-Host '(none observed)' } else { $seenConnections.Keys | Sort-Object | ForEach-Object { Write-Host $_ } }
+          Write-Host 'New system DNS cache entries (not necessarily caused by the application):'
+          $dnsAfter = @(Get-DnsClientCache | ForEach-Object Entry | Sort-Object -Unique)
+          $newDns = @($dnsAfter | Where-Object { $_ -notin $dnsBefore })
+          if ($newDns.Count -eq 0) { Write-Host '(none observed)' } else { $newDns | ForEach-Object { Write-Host $_ } }
+          try {
+            Add-Type -AssemblyName System.Windows.Forms
+            Add-Type -AssemblyName System.Drawing
+            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = [System.Drawing.Bitmap]::new($bounds.Width, $bounds.Height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+            $bitmap.Save((Join-Path $env:RUNNER_TEMP 'bettermusic-startup.png'))
+            $graphics.Dispose(); $bitmap.Dispose()
+            Write-Host 'Desktop screenshot captured.'
+          } catch { Write-Host "Screenshot unavailable: $($_.Exception.GetType().Name)" }
+          Write-Host 'Recent application error events:'
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$startedAt; Level=2} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'BetterMusic|YMusic.WinUI' } | Select-Object -First 5 TimeCreated, Id, Message | Format-List
+          if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+      - name: Upload startup screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterMusic-startup-preview
+          path: ${{ runner.temp }}/bettermusic-startup.png
+          if-no-files-found: warn

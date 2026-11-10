@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dotnet run",
+      "type": "shell",
+      "command": "dotnet run --project src\\YMusic.WinUI\\YMusic.WinUI.csproj",
+      "problemMatcher": "$msCompile",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false,
+        "clear": false,
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "dotnet build src\\YMusic.WinUI\\YMusic.WinUI.csproj",
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}
+
