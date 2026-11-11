@@ -1,0 +1,31 @@
+[package]
+name = "sever"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "bundle"
+path = "src/bin/bundle.rs"
+
+[features]
+default = ["sandbox"]
+sandbox = ["cef/sandbox"]
+check-api = ["cef/dox"]
+
+[dependencies]
+cef = { version = "=156.4.0", default-features = false, features = ["build-util"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.145"
+url = "=2.5.7"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+debug = 1
+strip = false
+lto = "thin"
