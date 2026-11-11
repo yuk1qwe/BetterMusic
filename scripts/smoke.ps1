@@ -64,9 +64,28 @@ try {
   "Рабочий набор процессов, байт: Lite=$memoryLite; Hard=$memoryHard. Один замер в CI, не бенчмарк." | Tee-Object -FilePath "$PWD/dist/measurement.txt"
   $statePath = Join-Path $env:SEVER_PROFILE 'state.json'
   if (!(Test-Path $statePath)) { throw 'Состояние не сохранено' }
+  $bookmarkCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '★ Сохранить / убрать')
+  $bookmark = $window.FindFirst($scope,$bookmarkCondition)
+  if (!$bookmark) { throw 'Панель Hard не открылась' }
+  $bookmark.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   $state = Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
   if ($state.tabs.Count -lt 2 -or $state.tabs -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Адреса вкладок не сохранены' }
-  Write-Host 'Окно, две вкладки, навигация, сохранение адресов и отсутствие флага --no-sandbox проверены.'
+  if ($state.bookmarks.url -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Закладка не сохранена' }
+  # Завершение и повторный запуск проверяют не только запись, но и восстановление сессии.
+  $app.CloseMainWindow() | Out-Null
+  for ($i=0; $i -lt 20; $i++) { $app.Refresh(); if ($app.HasExited) { break }; Start-Sleep 1 }
+  if (!$app.HasExited) { throw 'Окно с двумя вкладками не закрылось штатно' }
+  $env:SEVER_START_URL = 'http://127.0.0.1:18769/no-session.html'
+  $app = Start-Process "$PWD/dist/Север/sever.exe" -PassThru
+  $window=$null
+  for ($i=0; $i -lt 60; $i++) {
+    $app.Refresh(); if ($app.HasExited) { throw 'Браузер завершился при восстановлении сессии' }
+    $window=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,$title)
+    if ($window -and $window.FindFirst($scope,$tabTitle) -and $window.FindFirst($scope,$secondCondition)) { break }
+    Start-Sleep 1
+  }
+  if (!$window -or !$window.FindFirst($scope,$tabTitle) -or !$window.FindFirst($scope,$secondCondition)) { throw 'Две вкладки не восстановились после перезапуска' }
+  Write-Host 'Проверены отрисовка, две вкладки, навигация, закладка, штатное закрытие, восстановление сессии и отсутствие флага --no-sandbox.'
   try {
     $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
     $bitmap=New-Object System.Drawing.Bitmap($bounds.Width,$bounds.Height)
