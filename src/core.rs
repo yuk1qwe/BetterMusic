@@ -9,11 +9,19 @@ pub fn display_address(raw: &str, is_home: bool) -> String {
     if is_home {
         return "Новая вкладка · страница Feather".into();
     }
-    let Ok(url) = Url::parse(raw) else {
+    let Ok(mut url) = Url::parse(raw) else {
         return "Неизвестный адрес страницы".into();
     };
     match url.scheme() {
-        "http" | "https" => url.as_str().to_string(),
+        "http" | "https" => {
+            if !url.username().is_empty() || url.password().is_some() {
+                let _ = url.set_password(None);
+                let _ = url.set_username("");
+                format!("⚠ Учётные данные в адресе · {}", url.as_str())
+            } else {
+                url.as_str().to_string()
+            }
+        }
         "data" => "data: · содержимое страницы".into(),
         "about" => url.as_str().to_string(),
         scheme => format!("{scheme}: · нестандартный адрес"),
@@ -150,6 +158,10 @@ mod tests {
             "Новая вкладка · страница Feather"
         );
         assert!(display_address("https://пример.рф/a", false).contains("xn--"));
+        let with_credentials = display_address("https://user:secret@example.com/", false);
+        assert!(with_credentials.contains("example.com"));
+        assert!(!with_credentials.contains("secret"));
+        assert!(with_credentials.starts_with('⚠'));
         assert_eq!(restorable("javascript:alert(1)"), HOME);
         assert_eq!(restorable(HOME), HOME);
     }

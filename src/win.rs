@@ -11,8 +11,15 @@ struct Tab {
     url: String,
     title: String,
 }
+#[derive(Clone)]
+struct DownloadRow {
+    id: u32,
+    name: String,
+    status: String,
+}
 struct BrowserState {
     data: Data,
+    downloads: Vec<DownloadRow>,
     tabs: Vec<Tab>,
     active: u32,
     next: u32,
@@ -315,6 +322,7 @@ enum Action {
     Mode,
     Home,
     Resources,
+    Downloads,
     Bookmark,
     History,
     Bookmarks,
@@ -342,6 +350,7 @@ fn act(s: &Shared, action: Action) {
             }
         }
         Action::Resources => show_resources(s),
+        Action::Downloads => show_downloads(s),
         Action::Close => {
             if let Some(b) = current(s) {
                 if let Some(h) = b.host() {
@@ -510,6 +519,41 @@ fn show_resources(s: &Shared) {
     ))));
     refresh_panel(s);
 }
+fn show_downloads(s: &Shared) {
+    let (panel, hard, items) = {
+        let st = s.borrow();
+        (st.extra.clone(), st.data.hard, st.downloads.clone())
+    };
+    let Some(panel) = panel else { return };
+    if !hard {
+        return;
+    }
+    panel_chrome(&panel, s, "Загрузки");
+    if items.is_empty() {
+        panel.add_child_view(Some(&mut View::from(&text_label(
+            "Пока нет загрузок",
+            MUTED,
+        ))));
+    }
+    for item in items.into_iter().take(6) {
+        let label = format!(
+            "{} · {}",
+            item.name.chars().take(19).collect::<String>(),
+            item.status
+        );
+        panel.add_child_view(Some(&mut View::from(&text_label(&label, TEXT))));
+    }
+    panel.add_child_view(Some(&mut View::from(&text_label(
+        "Список текущего запуска",
+        MUTED,
+    ))));
+    panel.add_child_view(Some(&mut View::from(&button(
+        "↻  Обновить",
+        Action::Downloads,
+        s,
+    ))));
+    refresh_panel(s);
+}
 fn show_list(s: &Shared, bookmarks: bool, page: usize) {
     let (panel, items, hard) = {
         let st = s.borrow();
@@ -636,11 +680,18 @@ wrap_window_delegate! { struct PopupWindow { view: RefCell<Option<BrowserView>> 
 wrap_client! { struct BrowserClient { state: Shared, id: u32 } impl Client {
  fn display_handler(&self)->Option<DisplayHandler>{Some(DisplayEvents::new(self.state.clone(),self.id))}
  fn life_span_handler(&self)->Option<LifeSpanHandler>{Some(LifeEvents::new(self.state.clone(),self.id))}
- fn download_handler(&self)->Option<DownloadHandler>{Some(Downloads::new())}
+ fn download_handler(&self)->Option<DownloadHandler>{Some(Downloads::new(self.state.clone()))}
 } }
-wrap_download_handler! { struct Downloads; impl DownloadHandler {
+wrap_download_handler! { struct Downloads { state: Shared } impl DownloadHandler {
  fn can_download(&self,_unused3:Option<&mut Browser>,_unused4:Option<&CefString>,_unused5:Option<&CefString>)->i32{1}
  fn on_before_download(&self,_unused6:Option<&mut Browser>,_unused7:Option<&mut DownloadItem>,_unused8:Option<&CefString>,callback:Option<&mut BeforeDownloadCallback>)->i32 { if let Some(cb)=callback {cb.cont(None,1);1}else{0} }
+ fn on_download_updated(&self,_browser:Option<&mut Browser>,item:Option<&mut DownloadItem>,_callback:Option<&mut DownloadItemCallback>) {
+    let Some(item)=item else{return};if item.is_valid()==0{return;}
+    let mut name=CefString::from(&item.suggested_file_name()).to_string();if name.is_empty(){name="Файл".into();}
+    let status=if item.is_complete()!=0 {"готово".into()} else if item.is_canceled()!=0 {"отменено".into()} else if item.is_interrupted()!=0 {"ошибка".into()} else if item.percent_complete()>=0 {format!("{}%",item.percent_complete())} else {"загрузка".into()};
+    let row=DownloadRow{id:item.id(),name,status};let mut st=self.state.borrow_mut();
+    if let Some(pos)=st.downloads.iter().position(|r|r.id==row.id){st.downloads.remove(pos);}st.downloads.insert(0,row);st.downloads.truncate(50);
+ }
 } }
 wrap_display_handler! { struct DisplayEvents { state: Shared, id: u32 } impl DisplayHandler {
  fn on_address_change(&self,browser:Option<&mut Browser>,frame:Option<&mut Frame>,url:Option<&CefString>) {
@@ -723,7 +774,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     let body_layout=body.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,between_child_spacing:5,cross_axis_alignment:AxisAlignment::STRETCH,inside_border_insets:Insets{top:0,left:6,bottom:6,right:6},..Default::default()})).unwrap();
     let mut rail_delegate=FixedPanel::new(48);let rail=panel_create(Some(&mut rail_delegate)).unwrap();rail.set_background_color(SURFACE);
     rail.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,between_child_spacing:5,cross_axis_alignment:AxisAlignment::STRETCH,inside_border_insets:Insets{top:10,left:4,bottom:4,right:4},..Default::default()}));
-    for (name,tip,action) in [("⌂","Стартовая страница",Action::Home),("☆","Закладки",Action::Bookmarks),("◷","История",Action::History),("◉","Ресурсы",Action::Resources),("↗","Открыть в системе",Action::External)] {
+    for (name,tip,action) in [("⌂","Стартовая страница",Action::Home),("☆","Закладки",Action::Bookmarks),("◷","История",Action::History),("↓","Загрузки",Action::Downloads),("◉","Ресурсы",Action::Resources),("↗","Открыть в системе",Action::External)] {
        let b=button(name,action,&self.state);b.set_accessible_name(Some(&CefString::from(tip)));b.set_tooltip_text(Some(&CefString::from(tip)));rail.add_child_view(Some(&mut View::from(&b)));
     }
     let content=panel_create(None).unwrap();content.set_background_color(BG);
@@ -766,7 +817,7 @@ wrap_app! { struct AppImpl; impl App {
  fn browser_process_handler(&self)->Option<BrowserProcessHandler>{Some(Process::new())}
 } }
 wrap_browser_process_handler! {struct Process; impl BrowserProcessHandler {
- fn on_context_initialized(&self){let state=Rc::new(RefCell::new(BrowserState{data:read_data(),tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,rail:None,address:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
+ fn on_context_initialized(&self){let state=Rc::new(RefCell::new(BrowserState{data:read_data(),downloads:vec![],tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,rail:None,address:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
 } }
 #[unsafe(no_mangle)]
 unsafe extern "C" fn RunWinMain(

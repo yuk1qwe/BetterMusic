@@ -64,6 +64,31 @@ try {
     Start-Sleep 1
   }
   if (!$drawn) { Get-Content (Join-Path $env:SEVER_PROFILE 'layout.txt') -ErrorAction SilentlyContinue | Write-Host; throw 'Заголовок появился, но содержимое второй вкладки не отрисовано' }
+  # Проверяем адрес в отдельном окне и обновление при переходе на about:blank.
+  $popupLinkCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Проверить всплывающее окно')
+  $popupLink=$null
+  for ($i=0; $i -lt 15; $i++) { $popupLink=$window.FindFirst($scope,$popupLinkCondition); if ($popupLink) {break}; Start-Sleep 1 }
+  if (!$popupLink) {throw 'Ссылка для проверки всплывающего окна недоступна'}
+  $popupLink.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  $popupCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Feather — всплывающее окно')
+  $popup=$null
+  for ($i=0; $i -lt 20; $i++) { $popup=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,$popupCondition); if ($popup) {break}; Start-Sleep 1 }
+  if (!$popup) {throw 'Всплывающее окно не открылось'}
+  $popupAddressCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Адрес всплывающего окна')
+  $popupAddress=$popup.FindFirst($scope,$popupAddressCondition)
+  if (!$popupAddress) {throw 'В окне нет адресной строки'}
+  $popupValue=$popupAddress.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  if (!$popupValue.Current.IsReadOnly) {throw 'Адрес всплывающего окна должен быть доступен только для чтения'}
+  for ($i=0; $i -lt 20; $i++) {if ($popupValue.Current.Value -like 'http://127.0.0.1:18769/popup.html*') {break}; Start-Sleep 1}
+  if ($popupValue.Current.Value -notlike 'http://127.0.0.1:18769/popup.html*') {throw "Неверный адрес всплывающего окна: $($popupValue.Current.Value)"}
+  $blankCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Открыть пустую страницу')
+  $blank=$null
+  for ($i=0; $i -lt 15; $i++) {$blank=$popup.FindFirst($scope,$blankCondition);if ($blank) {break};Start-Sleep 1}
+  if (!$blank) {throw 'Ссылка внутри всплывающего окна недоступна'}
+  $blank.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  for ($i=0; $i -lt 15; $i++) {if ($popupValue.Current.Value -eq 'about:blank') {break};Start-Sleep 1}
+  if ($popupValue.Current.Value -ne 'about:blank') {throw "Адрес не обновился после перехода: $($popupValue.Current.Value)"}
+  $popup.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
   $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*feather*' }
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }
