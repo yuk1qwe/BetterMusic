@@ -33,6 +33,18 @@ fn profile() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
         .join("SeverBrowser")
 }
+fn trace(event: &str) {
+    if std::env::var_os("SEVER_LAYOUT_DEBUG").is_some() {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(profile().join("lifecycle.txt"))
+        {
+            let _ = writeln!(f, "{event}");
+        }
+    }
+}
 fn read_data() -> Data {
     std::fs::read(profile().join("state.json"))
         .ok()
@@ -395,8 +407,9 @@ wrap_display_handler! { struct DisplayEvents { state: Shared, id: u32 } impl Dis
  }
 } }
 wrap_life_span_handler! { struct LifeEvents { state: Shared, id: u32 } impl LifeSpanHandler {
- fn on_after_created(&self,_browser:Option<&mut Browser>) { self.state.borrow_mut().browsers += 1; }
+ fn on_after_created(&self,_browser:Option<&mut Browser>) { self.state.borrow_mut().browsers += 1; trace("on_after_created"); }
  fn on_before_close(&self,browser:Option<&mut Browser>) {
+    trace("on_before_close");
     let should_quit={let mut st=self.state.borrow_mut();st.browsers=st.browsers.saturating_sub(1);st.window.is_none() && st.browsers==0};
     if should_quit {quit_message_loop();}
     // Всплывающее окно использует тот же клиент; его закрытие не удаляет вкладку.
@@ -434,10 +447,11 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
  }
  fn can_resize(&self,_unused12:Option<&mut Window>)->i32{1} fn can_maximize(&self,_unused13:Option<&mut Window>)->i32{1} fn can_minimize(&self,_unused14:Option<&mut Window>)->i32{1}
  fn can_close(&self,_unused15:Option<&mut Window>)->i32 {
+    trace("can_close");
     let browser={let mut st=self.state.borrow_mut(); if !st.closing {save(&st);st.closing=true;} st.tabs.last().and_then(|t|t.view.browser())};
     if let Some(b)=browser { if let Some(h)=b.host(){h.close_browser(0);} 0 } else {1}
  }
- fn on_window_destroyed(&self,_window:Option<&mut Window>){let quit={let mut st=self.state.borrow_mut();st.window=None;st.browsers==0}; if quit {quit_message_loop();}}
+ fn on_window_destroyed(&self,_window:Option<&mut Window>){trace("on_window_destroyed");let quit={let mut st=self.state.borrow_mut();st.window=None;st.browsers==0}; if quit {quit_message_loop();}}
  fn on_accelerator(&self,_unused17:Option<&mut Window>,id:i32)->i32 {match id {1=>act(&self.state,Action::New),2=>act(&self.state,Action::Close),3=>{if let Some(a)=self.state.borrow().address.clone(){a.request_focus();a.select_all(0);}},4=>act(&self.state,Action::Reload),5=>act(&self.state,Action::Back),6=>act(&self.state,Action::Forward),_=>return 0};1}
  fn window_runtime_style(&self)->RuntimeStyle{RuntimeStyle::ALLOY}
 } }

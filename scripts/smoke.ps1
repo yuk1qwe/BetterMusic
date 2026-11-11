@@ -73,9 +73,9 @@ try {
   if ($state.tabs.Count -lt 2 -or $state.tabs -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Адреса вкладок не сохранены' }
   if ($state.bookmarks.url -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Закладка не сохранена' }
   # Завершение и повторный запуск проверяют не только запись, но и восстановление сессии.
-  $app.CloseMainWindow() | Out-Null
+  $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
   for ($i=0; $i -lt 20; $i++) { $app.Refresh(); if ($app.HasExited) { break }; Start-Sleep 1 }
-  if (!$app.HasExited) { throw 'Окно с двумя вкладками не закрылось штатно' }
+  if (!$app.HasExited) { Get-Content (Join-Path $env:SEVER_PROFILE 'lifecycle.txt') -ErrorAction SilentlyContinue | Write-Host; throw 'Окно с двумя вкладками не закрылось штатно' }
   $env:SEVER_START_URL = 'http://127.0.0.1:18769/no-session.html'
   $app = Start-Process "$PWD/dist/Север/sever.exe" -PassThru
   $window=$null
