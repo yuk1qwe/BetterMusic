@@ -24,7 +24,7 @@ try {
         if (Test-Path $life) { $count=@(Get-Content $life | Where-Object { $_ -eq 'on_after_created' }).Count }
         if ($count -ge $expected) { break }
       }
-      if ($count -ne $expected) { throw "Режим $mode: ожидалось $expected браузеров CEF, получено $count" }
+      if ($count -ne $expected) { throw "Режим ${mode}: ожидалось $expected браузеров CEF, получено $count" }
       $timer.Stop(); $createdMs=$timer.ElapsedMilliseconds
       Start-Sleep 10
       $samples=@()
