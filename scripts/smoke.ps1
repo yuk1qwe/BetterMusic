@@ -27,10 +27,21 @@ try {
   $newButton = $window.FindFirst($scope, $newCondition)
   if (!$newButton) { throw 'Кнопка новой вкладки отсутствует' }
   $newButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-  Start-Sleep 2
+  Start-Sleep 3
+  # Отдельный снимок новой локальной страницы для визуальной проверки дизайна.
+  try {
+    $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $bitmap=New-Object System.Drawing.Bitmap($bounds.Width,$bounds.Height)
+    $graphics=[System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size)
+    $bitmap.Save("$PWD/dist/new-tab.png",[System.Drawing.Imaging.ImageFormat]::Png)
+    $graphics.Dispose(); $bitmap.Dispose()
+  } catch { Write-Warning "Снимок стартовой страницы недоступен: $_" }
   $edits = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Edit)
   $address=$window.FindFirst($scope,$edits)
   if (!$address) { throw 'Адресная строка отсутствует' }
+  $addressValue=$address.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+  if ($addressValue -ne 'Новая вкладка · страница Feather') { throw "Неверный адрес стартовой страницы: $addressValue" }
   $address.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('http://127.0.0.1:18769/second.html')
   $goCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Перейти')
   $window.FindFirst($scope,$goCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()

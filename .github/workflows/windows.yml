@@ -29,6 +29,9 @@ jobs:
       - name: Проверить окно и навигацию
         shell: pwsh
         run: ./scripts/smoke.ps1
+      - name: Сравнить восстановление вкладок
+        shell: pwsh
+        run: ./scripts/benchmark.ps1
       - name: Подготовить файлы
         shell: pwsh
         run: |
@@ -47,5 +50,8 @@ jobs:
           name: Feather-smoke-screenshot
           path: |
             dist/smoke.png
+            dist/new-tab.png
+            dist/benchmark.json
+            dist/benchmark.txt
             dist/measurement.txt
           if-no-files-found: ignore
