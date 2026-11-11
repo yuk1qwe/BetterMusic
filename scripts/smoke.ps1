@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms, System.Drawing
 $env:SEVER_PROFILE = Join-Path $env:RUNNER_TEMP 'sever-smoke-profile'
 $env:SEVER_START_URL = 'http://127.0.0.1:18769/'
+$env:SEVER_LAYOUT_DEBUG = '1'
 $server = Start-Process python -ArgumentList '-m','http.server','18769','--bind','127.0.0.1','--directory',"$PWD/tests/fixture" -PassThru -WindowStyle Hidden
 $app = $null
 try {
@@ -51,7 +52,7 @@ try {
     if ([math]::Abs($color.R-177) -lt 5 -and [math]::Abs($color.G-220) -lt 5 -and [math]::Abs($color.B-186) -lt 5) { $drawn=$true; break }
     Start-Sleep 1
   }
-  if (!$drawn) { throw 'Заголовок появился, но содержимое второй вкладки не отрисовано' }
+  if (!$drawn) { Get-Content (Join-Path $env:SEVER_PROFILE 'layout.txt') -ErrorAction SilentlyContinue | Write-Host; throw 'Заголовок появился, но содержимое второй вкладки не отрисовано' }
   $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*sever*' }
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }

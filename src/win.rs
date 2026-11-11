@@ -92,7 +92,27 @@ fn switch(s: &Shared, id: u32) {
         a.set_text(Some(&CefString::from(url.as_str())));
     }
     if let Some(w) = window {
+        w.invalidate_layout();
         w.layout();
+    }
+    let (content, view) = {
+        let st = s.borrow();
+        (
+            st.content.clone(),
+            st.tabs.iter().find(|t| t.id == id).map(|t| t.view.clone()),
+        )
+    };
+    if let Some(p) = content.as_ref() {
+        p.invalidate_layout();
+        p.layout();
+    }
+    if std::env::var_os("SEVER_LAYOUT_DEBUG").is_some() {
+        let info = format!(
+            "content={:?}, view={:?}\n",
+            content.map(|p| p.bounds()),
+            view.map(|v| v.bounds())
+        );
+        let _ = std::fs::write(profile().join("layout.txt"), info);
     }
     save(&s.borrow());
 }
@@ -352,7 +372,7 @@ wrap_life_span_handler! { struct LifeEvents { state: Shared, id: u32 } impl Life
  fn on_before_close(&self,browser:Option<&mut Browser>) {
     let should_quit={let mut st=self.state.borrow_mut();st.browsers=st.browsers.saturating_sub(1);st.window.is_none() && st.browsers==0};
     if should_quit {quit_message_loop();}
-    // Popup uses the opener's client; never remove the opener's tab on popup close.
+    // Всплывающее окно использует тот же клиент; его закрытие не удаляет вкладку.
     if browser.as_ref().is_some_and(|b|b.is_popup()!=0){return;}
     let (tab,bar,content,next,window,closing)={ let mut st=self.state.borrow_mut();
        let tab=st.tabs.iter().position(|t|t.id==self.id).map(|i|st.tabs.remove(i));
@@ -366,11 +386,11 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
 } impl PanelDelegate {} impl WindowDelegate {
  fn on_window_created(&self,window:Option<&mut Window>) {
     let Some(w)=window else{return}; w.set_title(Some(&CefString::from("Север — браузер")));
-    let layout=w.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,..Default::default()})).unwrap();
+    let layout=w.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()})).unwrap();
     let bar=panel_create(None).unwrap(); bar.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
     let nav=panel_create(None).unwrap(); let nav_layout=nav.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()})).unwrap();
     let extra=panel_create(None).unwrap(); extra.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
-    let content=panel_create(None).unwrap(); content.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,default_flex:1,..Default::default()}));
+    let content=panel_create(None).unwrap(); content.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,default_flex:1,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()}));
     w.add_child_view(Some(&mut View::from(&bar))); w.add_child_view(Some(&mut View::from(&nav))); w.add_child_view(Some(&mut View::from(&extra))); w.add_child_view(Some(&mut View::from(&content)));
     layout.set_flex_for_view(Some(&mut View::from(&content)),1);
     for (label,action) in [("+",Action::New),("×",Action::Close),("←",Action::Back),("→",Action::Forward),("↻",Action::Reload)] {nav.add_child_view(Some(&mut View::from(&button(label,action,&self.state))));}
