@@ -40,7 +40,18 @@ try {
   $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*sever*' }
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }
-  Write-Host 'Окно, две вкладки, навигация и отсутствие флага --no-sandbox проверены.'
+  # Измерение рабочего набора — только срез в условиях CI, не сравнительный бенчмарк.
+  $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Север\sever.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
+  $modeCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Lite / Hard')
+  $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  Start-Sleep 3
+  $memoryHard = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Север\sever.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
+  "Рабочий набор процессов, байт: Lite=$memoryLite; Hard=$memoryHard. Один замер в CI, не бенчмарк." | Tee-Object -FilePath "$PWD/dist/measurement.txt"
+  $statePath = Join-Path $env:SEVER_PROFILE 'state.json'
+  if (!(Test-Path $statePath)) { throw 'Состояние не сохранено' }
+  $state = Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ($state.tabs.Count -lt 2 -or $state.tabs -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Адреса вкладок не сохранены' }
+  Write-Host 'Окно, две вкладки, навигация, сохранение адресов и отсутствие флага --no-sandbox проверены.'
   try {
     $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
     $bitmap=New-Object System.Drawing.Bitmap($bounds.Width,$bounds.Height)

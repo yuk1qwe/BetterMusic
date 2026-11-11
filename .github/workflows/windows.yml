@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$PWD\target\debug;$PWD\target\release;$env:PATH"
-          cargo test --locked --lib
+          cargo test --locked --release --lib
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Проверить окно и навигацию
         shell: pwsh
@@ -32,7 +32,7 @@ jobs:
       - name: Собрать ZIP
         shell: pwsh
         run: |
-          Copy-Item README.md, LIMITATIONS.md, LICENSE 'dist/Север/'
+          Copy-Item README.md, LIMITATIONS.md, LICENSE, scripts/check-cef.ps1 'dist/Север/'
           Compress-Archive -Path 'dist/Север/*' -DestinationPath 'dist/Sever-Windows-x64.zip'
       - name: Опубликовать сборку
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -46,5 +46,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Sever-smoke-screenshot
-          path: dist/smoke.png
+          path: |
+            dist/smoke.png
+            dist/measurement.txt
           if-no-files-found: ignore
