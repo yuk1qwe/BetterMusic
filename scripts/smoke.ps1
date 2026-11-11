@@ -103,6 +103,13 @@ try {
     $bitmap.Save("$PWD/dist/smoke.png",[System.Drawing.Imaging.ImageFormat]::Png)
     $graphics.Dispose();$bitmap.Dispose()
   } catch { Write-Warning "Снимок недоступен: $_" }
+  # Проверяем, что закрытая ранее вкладка не оставила процесс CEF незавершённым.
+  $window.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
+  for ($i=0; $i -lt 20; $i++) { $app.Refresh(); if ($app.HasExited) { break }; Start-Sleep 1 }
+  if (!$app.HasExited) {
+    Get-Content (Join-Path $env:SEVER_PROFILE 'lifecycle.txt') -ErrorAction SilentlyContinue | Write-Host
+    throw 'Браузер не завершился после закрытия отдельной вкладки и окна'
+  }
 } finally {
   if (!(Test-Path "$PWD/dist/smoke.png")) {
     try {
