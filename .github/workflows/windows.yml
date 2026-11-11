@@ -20,6 +20,11 @@ jobs:
           rustup default 1.99.1
       - name: Собрать программу с песочницей CEF
         run: cargo run --locked --release --bin bundle
+      - name: Убрать из поставки файлы разработки и лишние локализации
+        shell: pwsh
+        run: |
+          Get-ChildItem 'dist/Feather/locales' -File | Where-Object { $_.Name -notmatch '^(ru|en-US)([_.])' } | Remove-Item -Force
+          Get-ChildItem 'dist/Feather' -File | Where-Object { $_.Extension -in '.pdb', '.lib' -or $_.Name -eq 'CMakeLists.txt' } | Remove-Item -Force
       - name: Проверить логику навигации и данных
         shell: pwsh
         run: |
