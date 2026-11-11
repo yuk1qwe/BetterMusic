@@ -110,12 +110,18 @@ try {
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }
   # Измерение рабочего набора — только срез в условиях CI, не сравнительный бенчмарк.
-  $modeCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Lite / Hard')
+  $hardCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Режим: Hard')
+  $liteCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Режим: Lite')
   # Режим Hard включён по умолчанию: проверяем выключение и повторное включение.
-  $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  $window.FindFirst($scope,$hardCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  $liteButton = $null
+  for ($i=0; $i -lt 20; $i++) { $liteButton=$window.FindFirst($scope,$liteCondition); if ($liteButton) { break }; Start-Sleep -Milliseconds 500 }
+  if (!$liteButton) { throw 'Режим Lite не включился' }
   Start-Sleep 3
   $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
-  $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  $liteButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  for ($i=0; $i -lt 20; $i++) { if ($window.FindFirst($scope,$hardCondition)) { break }; Start-Sleep -Milliseconds 500 }
+  if (!$window.FindFirst($scope,$hardCondition)) { throw 'Режим Hard не включился' }
   Start-Sleep 3
   $memoryHard = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   "Рабочий набор процессов, байт: Lite=$memoryLite; Hard=$memoryHard. Один замер в CI, не бенчмарк." | Tee-Object -FilePath "$PWD/dist/measurement.txt"

@@ -29,6 +29,7 @@ struct BrowserState {
     extra: Option<Panel>,
     rail: Option<Panel>,
     address: Option<Textfield>,
+    mode: Option<LabelButton>,
     closing: bool,
     browsers: usize,
 }
@@ -390,11 +391,18 @@ fn act(s: &Shared, action: Action) {
             navigate(s, &text);
         }
         Action::Mode => {
-            let (extra, hard) = {
+            let (extra, hard, mode) = {
                 let mut st = s.borrow_mut();
                 st.data.hard = !st.data.hard;
-                (st.extra.clone(), st.data.hard)
+                (st.extra.clone(), st.data.hard, st.mode.clone())
             };
+            if let Some(mode) = mode {
+                mode.set_text(Some(&CefString::from(if hard {
+                    "Режим: Hard"
+                } else {
+                    "Режим: Lite"
+                })));
+            }
             let rail = { s.borrow().rail.clone() };
             if let Some(p) = rail {
                 p.set_visible(hard as i32);
@@ -767,6 +775,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
 } impl PanelDelegate {} impl WindowDelegate {
  fn on_window_created(&self,window:Option<&mut Window>) {
     trace("window:created");let Some(w)=window else{return};w.set_title(Some(&CefString::from("Feather — браузер")));w.set_background_color(BG);
+    if let Some(mut icon)=image_create(){if icon.add_png(1.0,Some(include_bytes!("../assets/feather-icon.png")))!=0 {w.set_window_icon(Some(&mut icon));w.set_window_app_icon(Some(&mut icon));}}
     let root=w.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()})).unwrap();
     let top=panel_create(None).unwrap();top.set_background_color(SURFACE);
     let top_layout=top.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,between_child_spacing:5,cross_axis_alignment:AxisAlignment::STRETCH,inside_border_insets:Insets{top:6,left:8,bottom:4,right:8},..Default::default()})).unwrap();
@@ -788,7 +797,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     nav.add_child_view(Some(&mut View::from(&address)));nav_layout.set_flex_for_view(Some(&mut View::from(&address)),1);
     nav.add_child_view(Some(&mut View::from(&button("Перейти",Action::Go,&self.state))));
     let fav=button("☆",Action::Bookmark,&self.state);fav.set_tooltip_text(Some(&CefString::from("Добавить или убрать закладку")));nav.add_child_view(Some(&mut View::from(&fav)));
-    let mode=button("Lite / Hard",Action::Mode,&self.state);mode.set_tooltip_text(Some(&CefString::from("Показать или скрыть боковую панель")));nav.add_child_view(Some(&mut View::from(&mode)));
+    let mode=button(if self.state.borrow().data.hard {"Режим: Hard"} else {"Режим: Lite"},Action::Mode,&self.state);mode.set_tooltip_text(Some(&CefString::from("Переключить режим и боковые панели")));nav.add_child_view(Some(&mut View::from(&mode)));
     let body=panel_create(None).unwrap();body.set_background_color(BG);
     let body_layout=body.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,between_child_spacing:5,cross_axis_alignment:AxisAlignment::STRETCH,inside_border_insets:Insets{top:0,left:6,bottom:6,right:6},..Default::default()})).unwrap();
     let mut rail_delegate=FixedPanel::new(48);let rail=panel_create(Some(&mut rail_delegate)).unwrap();rail.set_background_color(SURFACE);
@@ -804,7 +813,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     body_layout.set_flex_for_view(Some(&mut View::from(&content)),1);
     w.add_child_view(Some(&mut View::from(&top)));w.add_child_view(Some(&mut View::from(&nav)));w.add_child_view(Some(&mut View::from(&body)));
     root.set_flex_for_view(Some(&mut View::from(&body)),1);
-    trace("window:views_ready");let (restore,active,hard)={let mut st=self.state.borrow_mut();st.window=Some(w.clone());st.bar=Some(bar);st.content=Some(content);st.extra=Some(extra.clone());st.rail=Some(rail.clone());st.address=Some(address);
+    trace("window:views_ready");let (restore,active,hard)={let mut st=self.state.borrow_mut();st.window=Some(w.clone());st.bar=Some(bar);st.content=Some(content);st.extra=Some(extra.clone());st.rail=Some(rail.clone());st.address=Some(address);st.mode=Some(mode);
        (st.data.tabs.clone(),st.data.active,st.data.hard)};
     rail.set_visible(hard as i32);extra.set_visible(hard as i32);
     for (id,key,ctrl,alt) in [(1,84,1,0),(2,87,1,0),(3,76,1,0),(4,82,1,0),(5,37,0,1),(6,39,0,1)] {w.set_accelerator(id,key,0,ctrl,alt,1);}
@@ -836,7 +845,7 @@ wrap_app! { struct AppImpl; impl App {
  fn browser_process_handler(&self)->Option<BrowserProcessHandler>{Some(Process::new())}
 } }
 wrap_browser_process_handler! {struct Process; impl BrowserProcessHandler {
- fn on_context_initialized(&self){trace("context_initialized");let state=Rc::new(RefCell::new(BrowserState{data:read_data(),downloads:vec![],tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,rail:None,address:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
+ fn on_context_initialized(&self){trace("context_initialized");let state=Rc::new(RefCell::new(BrowserState{data:read_data(),downloads:vec![],tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,rail:None,address:None,mode:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
 } }
 #[unsafe(no_mangle)]
 unsafe extern "C" fn RunWinMain(
