@@ -326,6 +326,7 @@ enum Action {
     Reload,
     Go,
     Tab(u32),
+    Cycle(bool),
     Mode,
     Home,
     Resources,
@@ -349,6 +350,26 @@ fn act(s: &Shared, action: Action) {
     match action {
         Action::New => make_tab(s, core::HOME),
         Action::Tab(id) => switch(s, id),
+        Action::Cycle(backward) => {
+            let next = {
+                let st = s.borrow();
+                st.tabs
+                    .iter()
+                    .position(|tab| tab.id == st.active)
+                    .map(|index| {
+                        let count = st.tabs.len();
+                        let next = if backward {
+                            (index + count - 1) % count
+                        } else {
+                            (index + 1) % count
+                        };
+                        st.tabs[next].id
+                    })
+            };
+            if let Some(id) = next {
+                switch(s, id);
+            }
+        }
         Action::Home => {
             if let Some(b) = current(s) {
                 if let Some(frame) = b.main_frame() {
@@ -817,6 +838,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
        (st.data.tabs.clone(),st.data.active,st.data.hard)};
     rail.set_visible(hard as i32);extra.set_visible(hard as i32);
     for (id,key,ctrl,alt) in [(1,84,1,0),(2,87,1,0),(3,76,1,0),(4,82,1,0),(5,37,0,1),(6,39,0,1)] {w.set_accelerator(id,key,0,ctrl,alt,1);}
+    w.set_accelerator(7,9,0,1,0,1);w.set_accelerator(8,9,1,1,0,1);
     let urls:Vec<_>=restore.iter().take(core::MAX_RESTORED_TABS).map(|u|core::restorable(u)).collect();
     if urls.is_empty(){let home=std::env::var("SEVER_START_URL").ok().filter(|u|core::web_url(u)).unwrap_or_else(||core::HOME.into());make_tab(&self.state,&home);}
     else {
@@ -835,7 +857,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     1
  }
  fn on_window_destroyed(&self,_window:Option<&mut Window>){trace("on_window_destroyed");let (tabs,quit)={let mut st=self.state.borrow_mut();st.window=None;(std::mem::take(&mut st.tabs),st.browsers==0)}; drop(tabs); if quit {quit_message_loop();}}
- fn on_accelerator(&self,_unused17:Option<&mut Window>,id:i32)->i32 {match id {1=>act(&self.state,Action::New),2=>act(&self.state,Action::Close),3=>{if let Some(a)=self.state.borrow().address.clone(){a.request_focus();a.select_all(0);}},4=>act(&self.state,Action::Reload),5=>act(&self.state,Action::Back),6=>act(&self.state,Action::Forward),_=>return 0};1}
+ fn on_accelerator(&self,_unused17:Option<&mut Window>,id:i32)->i32 {match id {1=>act(&self.state,Action::New),2=>act(&self.state,Action::Close),3=>{if let Some(a)=self.state.borrow().address.clone(){a.request_focus();a.select_all(0);}},4=>act(&self.state,Action::Reload),5=>act(&self.state,Action::Back),6=>act(&self.state,Action::Forward),7=>act(&self.state,Action::Cycle(false)),8=>act(&self.state,Action::Cycle(true)),_=>return 0};1}
  fn window_runtime_style(&self)->RuntimeStyle{RuntimeStyle::ALLOY}
 } }
 wrap_app! { struct AppImpl; impl App {

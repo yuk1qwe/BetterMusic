@@ -162,6 +162,15 @@ try {
   $first=$null
   for ($i=0; $i -lt 30; $i++) { $first=$window.FindFirst($scope,$tabTitle); if ($first) { break }; Start-Sleep 1 }
   if (!$first) { throw 'Отложенная вкладка не загрузилась при выборе' }
+  # Настоящие сочетания клавиш переключают обе вкладки в восстановленной сессии.
+  $restoredAddress=$window.FindFirst($scope,$edits).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  $window.SetFocus()
+  [System.Windows.Forms.SendKeys]::SendWait('^{TAB}')
+  for ($i=0; $i -lt 20; $i++) { if ($restoredAddress.Current.Value -like 'http://127.0.0.1:18769/second.html*') { break }; Start-Sleep -Milliseconds 500 }
+  if ($restoredAddress.Current.Value -notlike 'http://127.0.0.1:18769/second.html*') { throw 'Ctrl+Tab не переключил вкладку' }
+  [System.Windows.Forms.SendKeys]::SendWait('^+{TAB}')
+  for ($i=0; $i -lt 20; $i++) { if ($restoredAddress.Current.Value -eq 'http://127.0.0.1:18769/') { break }; Start-Sleep -Milliseconds 500 }
+  if ($restoredAddress.Current.Value -ne 'http://127.0.0.1:18769/') { throw 'Ctrl+Shift+Tab не переключил вкладку' }
   $window.FindFirst($scope,$secondCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   $closeCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '×')
   $window.FindFirst($scope,$closeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -171,7 +180,7 @@ try {
     Get-Content (Join-Path $env:SEVER_PROFILE 'lifecycle.txt') -ErrorAction SilentlyContinue | Write-Host
     throw 'Закрытие отдельной вкладки не сохранило окно и соседнюю вкладку'
   }
-  Write-Host 'Проверены отрисовка, две вкладки, навигация, закладка, штатное закрытие, восстановление сессии и отсутствие флага --no-sandbox.'
+  Write-Host 'Проверены отрисовка, две вкладки, навигация, переключение клавишами, закладка, штатное закрытие, восстановление сессии и отсутствие флага --no-sandbox.'
   try {
     $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
     $bitmap=New-Object System.Drawing.Bitmap($bounds.Width,$bounds.Height)
