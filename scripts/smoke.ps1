@@ -37,6 +37,21 @@ try {
   $second=$null
   for ($i=0; $i -lt 30; $i++) { $second=$window.FindFirst($scope,$secondCondition); if ($second) { break }; Start-Sleep 1 }
   if (!$second) { throw 'Переход во второй вкладке не выполнен' }
+  # Проверяем не только заголовок, но и фактическую отрисовку второй вкладки.
+  $rect=$window.Current.BoundingRectangle
+  $x=[int]($rect.Left + $rect.Width / 2)
+  $y=[int]($rect.Top + $rect.Height * 0.6)
+  $drawn=$false
+  for ($i=0; $i -lt 15; $i++) {
+    $pixel=New-Object System.Drawing.Bitmap(1,1)
+    $g=[System.Drawing.Graphics]::FromImage($pixel)
+    $g.CopyFromScreen($x,$y,0,0,(New-Object System.Drawing.Size(1,1)))
+    $color=$pixel.GetPixel(0,0)
+    $g.Dispose(); $pixel.Dispose()
+    if ([math]::Abs($color.R-177) -lt 5 -and [math]::Abs($color.G-220) -lt 5 -and [math]::Abs($color.B-186) -lt 5) { $drawn=$true; break }
+    Start-Sleep 1
+  }
+  if (!$drawn) { throw 'Заголовок появился, но содержимое второй вкладки не отрисовано' }
   $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*sever*' }
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }
@@ -61,6 +76,16 @@ try {
     $graphics.Dispose();$bitmap.Dispose()
   } catch { Write-Warning "Снимок недоступен: $_" }
 } finally {
+  if (!(Test-Path "$PWD/dist/smoke.png")) {
+    try {
+      $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+      $bitmap=New-Object System.Drawing.Bitmap($bounds.Width,$bounds.Height)
+      $graphics=[System.Drawing.Graphics]::FromImage($bitmap)
+      $graphics.CopyFromScreen($bounds.Location,[System.Drawing.Point]::Empty,$bounds.Size)
+      $bitmap.Save("$PWD/dist/smoke.png",[System.Drawing.Imaging.ImageFormat]::Png)
+      $graphics.Dispose(); $bitmap.Dispose()
+    } catch { Write-Warning "Снимок недоступен: $_" }
+  }
   if ($app -and !$app.HasExited) { $app.CloseMainWindow() | Out-Null; Start-Sleep 3; if (!$app.HasExited) { Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue } }
   Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
 }

@@ -370,7 +370,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     let bar=panel_create(None).unwrap(); bar.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
     let nav=panel_create(None).unwrap(); let nav_layout=nav.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()})).unwrap();
     let extra=panel_create(None).unwrap(); extra.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
-    let content=panel_create(None).unwrap(); content.set_to_fill_layout();
+    let content=panel_create(None).unwrap(); content.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,default_flex:1,..Default::default()}));
     w.add_child_view(Some(&mut View::from(&bar))); w.add_child_view(Some(&mut View::from(&nav))); w.add_child_view(Some(&mut View::from(&extra))); w.add_child_view(Some(&mut View::from(&content)));
     layout.set_flex_for_view(Some(&mut View::from(&content)),1);
     for (label,action) in [("+",Action::New),("×",Action::Close),("←",Action::Back),("→",Action::Forward),("↻",Action::Reload)] {nav.add_child_view(Some(&mut View::from(&button(label,action,&self.state))));}
