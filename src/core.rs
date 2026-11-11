@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-pub const HOME: &str = "feather:newtab";
+pub const HOME: &str = "\0feather:newtab";
 pub const MAX_RESTORED_TABS: usize = 50;
 
 // Никогда не оставляем в строке адрес предыдущего сайта после навигации.
@@ -164,6 +164,10 @@ mod tests {
         assert!(with_credentials.starts_with('⚠'));
         assert_eq!(restorable("javascript:alert(1)"), HOME);
         assert_eq!(restorable(HOME), HOME);
+        assert_ne!(
+            display_address("feather:newtab", false),
+            display_address(HOME, true)
+        );
     }
     #[test]
     fn bookmarks_toggle_and_history_are_bounded() {
