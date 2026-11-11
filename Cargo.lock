@@ -368,6 +368,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "feather"
+version = "0.1.0"
+dependencies = [
+ "cef",
+ "serde",
+ "serde_json",
+ "url",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -947,17 +958,6 @@ dependencies = [
  "ryu",
  "serde",
  "serde_core",
-]
-
-[[package]]
-name = "sever"
-version = "0.1.0"
-dependencies = [
- "cef",
- "serde",
- "serde_json",
- "url",
- "windows-sys 0.61.2",
 ]
 
 [[package]]

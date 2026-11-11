@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$release = Invoke-RestMethod -Uri 'https://api.github.com/repos/tauri-apps/cef-rs/releases/latest' -Headers @{ 'User-Agent' = 'Sever-Browser' }
+$release = Invoke-RestMethod -Uri 'https://api.github.com/repos/tauri-apps/cef-rs/releases/latest' -Headers @{ 'User-Agent' = 'Feather-Browser' }
 $index = Invoke-RestMethod -Uri 'https://cef-builds.spotifycdn.com/index.json'
 $stable = $index.windows64.versions | Where-Object { $_.channel -eq 'stable' } | Select-Object -First 1
 Write-Host "Закреплённая версия Rust-привязок: 156.4.0+156.0.26"

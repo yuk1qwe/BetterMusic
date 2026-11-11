@@ -431,7 +431,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
  fn preferred_size(&self,_unused11:Option<&mut View>)->Size {Size{width:1200,height:800}}
 } impl PanelDelegate {} impl WindowDelegate {
  fn on_window_created(&self,window:Option<&mut Window>) {
-    let Some(w)=window else{return}; w.set_title(Some(&CefString::from("Север — браузер")));
+    let Some(w)=window else{return}; w.set_title(Some(&CefString::from("Feather — браузер")));
     let layout=w.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()})).unwrap();
     let bar=panel_create(None).unwrap(); bar.set_background_color(0xffe9f0fa); bar.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
     let nav=panel_create(None).unwrap(); nav.set_background_color(0xfff6f9fd); let nav_layout=nav.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()})).unwrap();

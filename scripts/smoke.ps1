@@ -6,9 +6,9 @@ $env:SEVER_LAYOUT_DEBUG = '1'
 $server = Start-Process python -ArgumentList '-m','http.server','18769','--bind','127.0.0.1','--directory',"$PWD/tests/fixture" -PassThru -WindowStyle Hidden
 $app = $null
 try {
-  $app = Start-Process "$PWD/dist/Север/sever.exe" -PassThru
+  $app = Start-Process "$PWD/dist/Feather/feather.exe" -PassThru
   $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $title = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Север — браузер')
+  $title = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Feather — браузер')
   $window = $null
   for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep -Seconds 1
@@ -19,7 +19,7 @@ try {
   }
   if (!$window) { throw 'Окно браузера не появилось' }
   $scope = [System.Windows.Automation.TreeScope]::Descendants
-  $tabTitle = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Проверка Севера')
+  $tabTitle = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Проверка Feather')
   $tab = $null
   for ($i=0; $i -lt 30; $i++) { $tab=$window.FindFirst($scope,$tabTitle); if ($tab) { break }; Start-Sleep 1 }
   if (!$tab) { throw 'Локальная страница не загрузилась или заголовок вкладки не обновился' }
@@ -53,15 +53,15 @@ try {
     Start-Sleep 1
   }
   if (!$drawn) { Get-Content (Join-Path $env:SEVER_PROFILE 'layout.txt') -ErrorAction SilentlyContinue | Write-Host; throw 'Заголовок появился, но содержимое второй вкладки не отрисовано' }
-  $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*sever*' }
+  $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*feather*' }
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }
   # Измерение рабочего набора — только срез в условиях CI, не сравнительный бенчмарк.
-  $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Север\sever.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
+  $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   $modeCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Lite / Hard')
   $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   Start-Sleep 3
-  $memoryHard = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Север\sever.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
+  $memoryHard = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   "Рабочий набор процессов, байт: Lite=$memoryLite; Hard=$memoryHard. Один замер в CI, не бенчмарк." | Tee-Object -FilePath "$PWD/dist/measurement.txt"
   $statePath = Join-Path $env:SEVER_PROFILE 'state.json'
   if (!(Test-Path $statePath)) { throw 'Состояние не сохранено' }
@@ -77,7 +77,7 @@ try {
   for ($i=0; $i -lt 20; $i++) { $app.Refresh(); if ($app.HasExited) { break }; Start-Sleep 1 }
   if (!$app.HasExited) { Get-Content (Join-Path $env:SEVER_PROFILE 'lifecycle.txt') -ErrorAction SilentlyContinue | Write-Host; throw 'Окно с двумя вкладками не закрылось штатно' }
   $env:SEVER_START_URL = 'http://127.0.0.1:18769/no-session.html'
-  $app = Start-Process "$PWD/dist/Север/sever.exe" -PassThru
+  $app = Start-Process "$PWD/dist/Feather/feather.exe" -PassThru
   $window=$null
   for ($i=0; $i -lt 60; $i++) {
     $app.Refresh(); if ($app.HasExited) { throw 'Браузер завершился при восстановлении сессии' }
