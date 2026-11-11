@@ -5,6 +5,7 @@ $env:SEVER_START_URL = 'http://127.0.0.1:18769/'
 $env:SEVER_LAYOUT_DEBUG = '1'
 $server = Start-Process python -ArgumentList '-m','http.server','18769','--bind','127.0.0.1','--directory',"$PWD/tests/fixture" -PassThru -WindowStyle Hidden
 $app = $null
+$completed = $false
 try {
   $app = Start-Process "$PWD/dist/Feather/feather.exe" -PassThru
   $root = [System.Windows.Automation.AutomationElement]::RootElement
@@ -109,11 +110,11 @@ try {
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }
   # Измерение рабочего набора — только срез в условиях CI, не сравнительный бенчмарк.
-  $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   $modeCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Lite / Hard')
   # Режим Hard включён по умолчанию: проверяем выключение и повторное включение.
   $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-  Start-Sleep 1
+  Start-Sleep 3
+  $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   Start-Sleep 3
   $memoryHard = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
@@ -123,10 +124,16 @@ try {
   $bookmarksCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Закладки')
   $window.FindFirst($scope,$bookmarksCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   $bookmarkCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '★ Сохранить / убрать')
-  $bookmark = $window.FindFirst($scope,$bookmarkCondition)
+  $bookmark = $null
+  for ($i=0; $i -lt 20; $i++) { $bookmark=$window.FindFirst($scope,$bookmarkCondition); if ($bookmark) { break }; Start-Sleep -Milliseconds 500 }
   if (!$bookmark) { throw 'Панель Hard не открылась' }
   $bookmark.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-  $state = Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+  $state = $null
+  for ($i=0; $i -lt 20; $i++) {
+    $state = Get-Content $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($state.bookmarks.url -contains 'http://127.0.0.1:18769/second.html') { break }
+    Start-Sleep -Milliseconds 500
+  }
   if ($state.tabs.Count -lt 2 -or $state.tabs -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Адреса вкладок не сохранены' }
   if ($state.bookmarks.url -notcontains 'http://127.0.0.1:18769/second.html') { throw 'Закладка не сохранена' }
   # Завершение и повторный запуск проверяют не только запись, но и восстановление сессии.
@@ -174,7 +181,13 @@ try {
     Get-Content (Join-Path $env:SEVER_PROFILE 'lifecycle.txt') -ErrorAction SilentlyContinue | Write-Host
     throw 'Браузер не завершился после закрытия отдельной вкладки и окна'
   }
+  $completed = $true
 } finally {
+  if (!$completed) {
+    foreach ($file in @((Join-Path $env:SEVER_PROFILE 'panic.txt'),(Join-Path $env:SEVER_PROFILE 'lifecycle.txt'),"$PWD/dist/Feather/debug.log")) {
+      if (Test-Path $file) { Write-Host "Диагностика: $file"; Get-Content $file -Tail 100 | Write-Host }
+    }
+  }
   if (!(Test-Path "$PWD/dist/smoke.png")) {
     try {
       $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds

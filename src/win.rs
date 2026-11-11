@@ -408,7 +408,8 @@ fn act(s: &Shared, action: Action) {
             if hard {
                 show_resources(s);
             }
-            if let Some(w) = s.borrow().window.clone() {
+            let window = { s.borrow().window.clone() };
+            if let Some(w) = window {
                 w.invalidate_layout();
                 w.layout();
             }
@@ -646,8 +647,15 @@ fn show_list(s: &Shared, bookmarks: bool, page: usize) {
     refresh_panel(s);
 }
 wrap_button_delegate! { struct PassiveLabel {} impl ViewDelegate {} impl ButtonDelegate {} }
+// Обновление панели может удалить нажатую кнопку. Выполняем действие в
+// следующем сообщении UI, когда CEF уже вернулся из обработчика этой кнопки.
+wrap_task! { struct ButtonAction { state: Shared, action: Action }
+impl Task { fn execute(&self) { act(&self.state, self.action.clone()); } } }
 wrap_button_delegate! { struct Buttons { state: Shared, action: Action }
-impl ViewDelegate {} impl ButtonDelegate { fn on_button_pressed(&self,_unused1:Option<&mut Button>){act(&self.state,self.action.clone());} } }
+impl ViewDelegate {} impl ButtonDelegate { fn on_button_pressed(&self,_unused1:Option<&mut Button>){
+    let mut task = ButtonAction::new(self.state.clone(), self.action.clone());
+    post_task(ThreadId::UI, Some(&mut task));
+} } }
 wrap_textfield_delegate! { struct Address { state: Shared }
 impl ViewDelegate {} impl TextfieldDelegate { fn on_key_event(&self,_unused2:Option<&mut Textfield>,event:Option<&KeyEvent>)->i32 {
    if event.is_some_and(|e|e.type_==KeyEventType::RAWKEYDOWN && e.windows_key_code==13) {act(&self.state,Action::Go);1}else{0}
