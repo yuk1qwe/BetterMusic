@@ -714,10 +714,14 @@ wrap_display_handler! { struct DisplayEvents { state: Shared, id: u32 } impl Dis
        return;
     }
     let canonical=if raw==start_page_url(){core::HOME.to_string()} else {raw.clone()};
-    let address={let mut st=self.state.borrow_mut(); if let Some(t)=st.tabs.iter_mut().find(|t|t.id==self.id){t.url=canonical.clone();}
-       if core::web_url(&canonical){st.data.add_history(canonical.clone(),canonical.clone());}
-       save(&st);if st.active==self.id {st.address.clone()}else{None}};
-    if let Some(a)=address {a.set_text(Some(&CefString::from(shown_address(&canonical).as_str())));}
+    let (address,tab_button)={let mut st=self.state.borrow_mut();
+       let mut changed=false;
+       let tab_button=st.tabs.iter_mut().find(|t|t.id==self.id).map(|t|{changed=t.url!=canonical;t.url=canonical.clone();t.button.clone()});
+       if changed && core::web_url(&canonical){st.data.add_history(canonical.clone(),canonical.clone());}
+       if changed {save(&st);} (if st.active==self.id {st.address.clone()}else{None},tab_button)};
+    let shown=shown_address(&canonical);
+    if let Some(b)=tab_button {b.set_tooltip_text(Some(&CefString::from(shown.as_str())));}
+    if let Some(a)=address {a.set_text(Some(&CefString::from(shown.as_str())));}
  }
  fn on_title_change(&self,browser:Option<&mut Browser>,title:Option<&CefString>) {
     if browser.as_ref().is_some_and(|b|b.is_popup()!=0) {return;}

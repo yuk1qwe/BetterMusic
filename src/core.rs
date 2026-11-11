@@ -184,6 +184,14 @@ mod tests {
         assert_eq!(d.history.len(), 500);
     }
     #[test]
+    fn start_page_has_no_privileged_script_or_remote_assets() {
+        let page = include_str!("../assets/new_tab.html");
+        assert!(!page.to_ascii_lowercase().contains("<script"));
+        assert!(page.contains("default-src 'none'"));
+        assert!(page.contains("img-src data:"));
+        assert!(page.contains("{{BACKGROUND}}"));
+    }
+    #[test]
     fn old_or_partial_settings_load() {
         let d: Data = serde_json::from_str("{\"hard\":true}").unwrap();
         assert!(d.hard);
