@@ -163,8 +163,9 @@ try {
   for ($i=0; $i -lt 30; $i++) { $first=$window.FindFirst($scope,$tabTitle); if ($first) { break }; Start-Sleep 1 }
   if (!$first) { throw 'Отложенная вкладка не загрузилась при выборе' }
   # Настоящие сочетания клавиш переключают обе вкладки в восстановленной сессии.
-  $restoredAddress=$window.FindFirst($scope,$edits).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
-  $window.SetFocus()
+  $restoredEdit=$window.FindFirst($scope,$edits)
+  $restoredAddress=$restoredEdit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  $restoredEdit.SetFocus()
   [System.Windows.Forms.SendKeys]::SendWait('^{TAB}')
   for ($i=0; $i -lt 20; $i++) { if ($restoredAddress.Current.Value -like 'http://127.0.0.1:18769/second.html*') { break }; Start-Sleep -Milliseconds 500 }
   if ($restoredAddress.Current.Value -notlike 'http://127.0.0.1:18769/second.html*') { throw 'Ctrl+Tab не переключил вкладку' }
