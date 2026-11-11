@@ -86,6 +86,14 @@ try {
     Start-Sleep 1
   }
   if (!$window -or !$window.FindFirst($scope,$tabTitle) -or !$window.FindFirst($scope,$secondCondition)) { throw 'Две вкладки не восстановились после перезапуска' }
+  $closeCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '×')
+  $window.FindFirst($scope,$closeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  for ($i=0; $i -lt 20; $i++) { if (!$window.FindFirst($scope,$secondCondition)) { break }; Start-Sleep 1 }
+  $app.Refresh()
+  if ($app.HasExited -or $window.FindFirst($scope,$secondCondition) -or !$window.FindFirst($scope,$tabTitle)) {
+    Get-Content (Join-Path $env:SEVER_PROFILE 'lifecycle.txt') -ErrorAction SilentlyContinue | Write-Host
+    throw 'Закрытие отдельной вкладки не сохранило окно и соседнюю вкладку'
+  }
   Write-Host 'Проверены отрисовка, две вкладки, навигация, закладка, штатное закрытие, восстановление сессии и отсутствие флага --no-sandbox.'
   try {
     $bounds=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
