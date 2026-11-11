@@ -75,7 +75,7 @@ fn switch(s: &Shared, id: u32) {
         let views = st
             .tabs
             .iter()
-            .map(|t| (t.view.clone(), t.id == id))
+            .map(|t| (t.view.clone(), t.button.clone(), t.id == id))
             .collect::<Vec<_>>();
         let url = st
             .tabs
@@ -85,8 +85,10 @@ fn switch(s: &Shared, id: u32) {
             .unwrap_or_default();
         (views, st.address.clone(), url, st.window.clone())
     };
-    for (view, active) in views {
+    for (view, button, active) in views {
         view.set_visible(active as i32);
+        button.set_background_color(if active { 0xffcbdcf4 } else { 0xffe9f0fa });
+        button.set_enabled_text_colors(if active { 0xff174b93 } else { 0xff34465c });
     }
     if let Some(a) = address {
         a.set_text(Some(&CefString::from(url.as_str())));
@@ -118,7 +120,14 @@ fn switch(s: &Shared, id: u32) {
 }
 fn button(text: &str, action: Action, s: &Shared) -> LabelButton {
     let mut d = Buttons::new(s.clone(), action);
-    label_button_create(Some(&mut d), Some(&CefString::from(text))).expect("кнопка")
+    let button = label_button_create(Some(&mut d), Some(&CefString::from(text))).expect("кнопка");
+    button.set_font_list(Some(&CefString::from("Segoe UI, 13px")));
+    button.set_enabled_text_colors(0xff263c58);
+    button.set_minimum_size(Some(&Size {
+        width: 0,
+        height: 34,
+    }));
+    button
 }
 fn make_tab(s: &Shared, url: &str) {
     let (id, bar, content) = {
@@ -201,6 +210,7 @@ enum Action {
     Bookmark,
     History,
     Bookmarks,
+    ListPage(bool, usize),
     Open(String),
     External,
 }
@@ -273,13 +283,14 @@ fn act(s: &Shared, action: Action) {
             }
             save(&st);
         }
-        Action::Bookmarks => show_list(s, true),
-        Action::History => show_list(s, false),
+        Action::Bookmarks => show_list(s, true, 0),
+        Action::History => show_list(s, false, 0),
+        Action::ListPage(bookmarks, page) => show_list(s, bookmarks, page),
         Action::Open(url) => navigate(s, &url),
         Action::External => external(s),
     }
 }
-fn show_list(s: &Shared, bookmarks: bool) {
+fn show_list(s: &Shared, bookmarks: bool, page: usize) {
     // Список строится только по запросу, без фоновых страниц и сценариев.
     let (panel, items) = {
         let st = s.borrow();
@@ -314,18 +325,34 @@ fn show_list(s: &Shared, bookmarks: bool) {
             Action::External,
             s,
         ))));
-        for e in items.into_iter().take(4) {
+        let pages = items.len().div_ceil(4);
+        let page = page.min(pages.saturating_sub(1));
+        if page > 0 {
+            p.add_child_view(Some(&mut View::from(&button(
+                "←",
+                Action::ListPage(bookmarks, page - 1),
+                s,
+            ))));
+        }
+        for e in items.into_iter().skip(page * 4).take(4) {
             let label: String = if e.title.is_empty() {
                 e.url.clone()
             } else {
                 e.title.clone()
             }
             .chars()
-            .take(20)
+            .take(12)
             .collect();
             p.add_child_view(Some(&mut View::from(&button(
                 &label,
                 Action::Open(e.url),
+                s,
+            ))));
+        }
+        if page + 1 < pages {
+            p.add_child_view(Some(&mut View::from(&button(
+                "Ещё →",
+                Action::ListPage(bookmarks, page + 1),
                 s,
             ))));
         }
@@ -387,19 +414,19 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
  fn on_window_created(&self,window:Option<&mut Window>) {
     let Some(w)=window else{return}; w.set_title(Some(&CefString::from("Север — браузер")));
     let layout=w.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()})).unwrap();
-    let bar=panel_create(None).unwrap(); bar.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
-    let nav=panel_create(None).unwrap(); let nav_layout=nav.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()})).unwrap();
-    let extra=panel_create(None).unwrap(); extra.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
+    let bar=panel_create(None).unwrap(); bar.set_background_color(0xffe9f0fa); bar.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
+    let nav=panel_create(None).unwrap(); nav.set_background_color(0xfff6f9fd); let nav_layout=nav.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()})).unwrap();
+    let extra=panel_create(None).unwrap(); extra.set_background_color(0xffe4eefb); extra.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,..Default::default()}));
     let content=panel_create(None).unwrap(); content.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,default_flex:1,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()}));
     w.add_child_view(Some(&mut View::from(&bar))); w.add_child_view(Some(&mut View::from(&nav))); w.add_child_view(Some(&mut View::from(&extra))); w.add_child_view(Some(&mut View::from(&content)));
     layout.set_flex_for_view(Some(&mut View::from(&content)),1);
     for (label,action) in [("+",Action::New),("×",Action::Close),("←",Action::Back),("→",Action::Forward),("↻",Action::Reload)] {nav.add_child_view(Some(&mut View::from(&button(label,action,&self.state))));}
-    let mut delegate=Address::new(self.state.clone()); let address=textfield_create(Some(&mut delegate)).unwrap(); address.set_placeholder_text(Some(&CefString::from("Адрес или поисковый запрос")));
+    let mut delegate=Address::new(self.state.clone()); let address=textfield_create(Some(&mut delegate)).unwrap(); address.set_font_list(Some(&CefString::from("Segoe UI, 14px"))); address.set_accessible_name(Some(&CefString::from("Адресная строка"))); address.set_placeholder_text(Some(&CefString::from("Адрес или поисковый запрос")));
     nav.add_child_view(Some(&mut View::from(&address))); nav_layout.set_flex_for_view(Some(&mut View::from(&address)),1);
     nav.add_child_view(Some(&mut View::from(&button("Перейти",Action::Go,&self.state)))); nav.add_child_view(Some(&mut View::from(&button("Lite / Hard",Action::Mode,&self.state))));
     let (restore,active,hard)={let mut st=self.state.borrow_mut(); st.window=Some(w.clone());st.bar=Some(bar);st.content=Some(content);st.extra=Some(extra.clone());st.address=Some(address);
        (st.data.tabs.clone(),st.data.active,st.data.hard)};
-    show_list(&self.state,true); extra.set_visible(hard as i32);
+    show_list(&self.state,true,0); extra.set_visible(hard as i32);
     for (id,key,ctrl,alt) in [(1,84,1,0),(2,87,1,0),(3,76,1,0),(4,82,1,0),(5,37,0,1),(6,39,0,1)] {w.set_accelerator(id,key,0,ctrl,alt,1);}
     let urls:Vec<_>=restore.into_iter().filter(|u|core::web_url(u)).take(15).collect();
     if urls.is_empty(){ let home=std::env::var("SEVER_START_URL").ok().filter(|u|core::web_url(u)).unwrap_or_else(||core::HOME.into()); make_tab(&self.state,&home);} else {for u in &urls {make_tab(&self.state,u);} let id=self.state.borrow().tabs.get(active.min(urls.len()-1)).map(|t|t.id).unwrap();switch(&self.state,id);}
