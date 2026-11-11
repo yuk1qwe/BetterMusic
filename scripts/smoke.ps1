@@ -94,6 +94,17 @@ try {
   for ($i=0; $i -lt 15; $i++) {if ($popupValue.Current.Value -eq 'about:blank') {break};Start-Sleep 1}
   if ($popupValue.Current.Value -ne 'about:blank') {throw "Адрес не обновился после перехода: $($popupValue.Current.Value)"}
   $popup.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close()
+  $mainBlankCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Проверить адрес страницы')
+  $mainBlank=$window.FindFirst($scope,$mainBlankCondition)
+  if (!$mainBlank) {throw 'Ссылка проверки адреса недоступна'}
+  $mainBlank.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  $mainValue=$address.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+  for ($i=0; $i -lt 15; $i++) {if ($mainValue.Current.Value -eq 'about:blank') {break};Start-Sleep 1}
+  if ($mainValue.Current.Value -ne 'about:blank') {throw "Основной адрес не обновился: $($mainValue.Current.Value)"}
+  $backCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '←')
+  $window.FindFirst($scope,$backCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  for ($i=0; $i -lt 15; $i++) {if ($mainValue.Current.Value -like 'http://127.0.0.1:18769/second.html*') {break};Start-Sleep 1}
+  if ($mainValue.Current.Value -notlike 'http://127.0.0.1:18769/second.html*') {throw 'Возврат на тестовую страницу не выполнен'}
   $renderers = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*--type=renderer*' -and $_.CommandLine -like '*feather*' }
   if (!$renderers) { throw 'Не обнаружен процесс renderer CEF' }
   if ($renderers | Where-Object { $_.CommandLine -match '(?:^|\s)--no-sandbox(?:\s|$)' }) { throw 'Процесс renderer запущен с --no-sandbox' }

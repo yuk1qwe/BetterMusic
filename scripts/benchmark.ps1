@@ -13,6 +13,7 @@ try {
     $state | ConvertTo-Json -Depth 5 | Set-Content -Path (Join-Path $profile 'state.json') -Encoding utf8
     $env:SEVER_PROFILE=$profile
     if ($mode -eq 'eager') { $env:FEATHER_EAGER_RESTORE='1' } else { Remove-Item Env:FEATHER_EAGER_RESTORE -ErrorAction SilentlyContinue }
+    $timer=[System.Diagnostics.Stopwatch]::StartNew()
     $app=Start-Process $exe -PassThru
     try {
       $expected=if ($mode -eq 'eager') {10} else {1}
@@ -24,6 +25,7 @@ try {
         if ($count -ge $expected) { break }
       }
       if ($count -ne $expected) { throw "Режим $mode: ожидалось $expected браузеров CEF, получено $count" }
+      $timer.Stop(); $createdMs=$timer.ElapsedMilliseconds
       Start-Sleep 10
       $samples=@()
       for ($i=0;$i -lt 3;$i++) {
@@ -33,7 +35,7 @@ try {
         $samples+= [long]$total
         Start-Sleep 3
       }
-      $results+= [pscustomobject]@{mode=$mode; restored_tabs=10; loaded_browsers=$count; samples_bytes=$samples; average_bytes=[long](($samples|Measure-Object -Average).Average); process_count=$processes.Count}
+      $results+= [pscustomobject]@{mode=$mode; restored_tabs=10; loaded_browsers=$count; time_to_created_ms=$createdMs; samples_bytes=$samples; average_bytes=[long](($samples|Measure-Object -Average).Average); process_count=$processes.Count}
       $root=[System.Windows.Automation.AutomationElement]::RootElement
       $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,'Feather — браузер')
       $window=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,$condition)
