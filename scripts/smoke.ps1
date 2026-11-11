@@ -59,12 +59,17 @@ try {
   # Измерение рабочего набора — только срез в условиях CI, не сравнительный бенчмарк.
   $memoryLite = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   $modeCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Lite / Hard')
+  # Режим Hard включён по умолчанию: проверяем выключение и повторное включение.
+  $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  Start-Sleep 1
   $window.FindFirst($scope,$modeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   Start-Sleep 3
   $memoryHard = (Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq "$PWD\dist\Feather\feather.exe" } | Measure-Object -Property WorkingSetSize -Sum).Sum
   "Рабочий набор процессов, байт: Lite=$memoryLite; Hard=$memoryHard. Один замер в CI, не бенчмарк." | Tee-Object -FilePath "$PWD/dist/measurement.txt"
   $statePath = Join-Path $env:SEVER_PROFILE 'state.json'
   if (!(Test-Path $statePath)) { throw 'Состояние не сохранено' }
+  $bookmarksCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, 'Закладки')
+  $window.FindFirst($scope,$bookmarksCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   $bookmarkCondition = New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '★ Сохранить / убрать')
   $bookmark = $window.FindFirst($scope,$bookmarkCondition)
   if (!$bookmark) { throw 'Панель Hard не открылась' }
@@ -82,10 +87,17 @@ try {
   for ($i=0; $i -lt 60; $i++) {
     $app.Refresh(); if ($app.HasExited) { throw 'Браузер завершился при восстановлении сессии' }
     $window=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,$title)
-    if ($window -and $window.FindFirst($scope,$tabTitle) -and $window.FindFirst($scope,$secondCondition)) { break }
+    $deferred=if ($window) { $window.FindFirst($scope,(New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '127.0.0.1'))) } else { $null }
+    if ($window -and $deferred -and $window.FindFirst($scope,$secondCondition)) { break }
     Start-Sleep 1
   }
-  if (!$window -or !$window.FindFirst($scope,$tabTitle) -or !$window.FindFirst($scope,$secondCondition)) { throw 'Две вкладки не восстановились после перезапуска' }
+  if (!$window -or !$deferred -or !$window.FindFirst($scope,$secondCondition)) { throw 'Вкладки не восстановились после перезапуска' }
+  if ($window.FindFirst($scope,$tabTitle)) { throw 'Фоновая вкладка загрузилась до выбора' }
+  $deferred.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  $first=$null
+  for ($i=0; $i -lt 30; $i++) { $first=$window.FindFirst($scope,$tabTitle); if ($first) { break }; Start-Sleep 1 }
+  if (!$first) { throw 'Отложенная вкладка не загрузилась при выборе' }
+  $window.FindFirst($scope,$secondCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   $closeCondition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, '×')
   $window.FindFirst($scope,$closeCondition).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
   for ($i=0; $i -lt 20; $i++) { if (!$window.FindFirst($scope,$secondCondition)) { break }; Start-Sleep 1 }

@@ -1,13 +1,49 @@
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-pub const HOME: &str = "https://www.wikipedia.org/";
+pub const HOME: &str = "feather:newtab";
+pub const MAX_RESTORED_TABS: usize = 50;
+
+// Никогда не оставляем в строке адрес предыдущего сайта после навигации.
+pub fn display_address(raw: &str, is_home: bool) -> String {
+    if is_home {
+        return "Новая вкладка · страница Feather".into();
+    }
+    let Ok(url) = Url::parse(raw) else {
+        return "Неизвестный адрес страницы".into();
+    };
+    match url.scheme() {
+        "http" | "https" => url.as_str().to_string(),
+        "data" => "data: · содержимое страницы".into(),
+        "about" => url.as_str().to_string(),
+        scheme => format!("{scheme}: · нестандартный адрес"),
+    }
+}
+pub fn restorable(raw: &str) -> String {
+    if raw == HOME || web_url(raw) {
+        raw.to_string()
+    } else {
+        HOME.to_string()
+    }
+}
+pub fn tab_caption(raw: &str) -> String {
+    if raw == HOME {
+        return "Новая вкладка".into();
+    }
+    Url::parse(raw)
+        .ok()
+        .and_then(|u| u.host_str().map(str::to_string))
+        .unwrap_or_else(|| "Страница".into())
+        .chars()
+        .take(18)
+        .collect()
+}
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Entry {
     pub title: String,
     pub url: String,
 }
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(default)]
 pub struct Data {
     pub tabs: Vec<String>,
@@ -15,6 +51,18 @@ pub struct Data {
     pub bookmarks: Vec<Entry>,
     pub history: Vec<Entry>,
     pub hard: bool,
+}
+
+impl Default for Data {
+    fn default() -> Self {
+        Self {
+            tabs: vec![],
+            active: 0,
+            bookmarks: vec![],
+            history: vec![],
+            hard: true,
+        }
+    }
 }
 
 pub fn web_url(s: &str) -> bool {
@@ -89,6 +137,21 @@ mod tests {
         assert_eq!(navigate("javascript:alert(1)"), None);
         assert_eq!(navigate("file:///C:/secret"), None);
         assert!(!web_url("https://user:secret@example.com/"));
+    }
+    #[test]
+    fn origin_display_never_reuses_the_previous_address() {
+        assert_eq!(
+            display_address("data:text/html,example", false),
+            "data: · содержимое страницы"
+        );
+        assert_eq!(display_address("about:blank", false), "about:blank");
+        assert_eq!(
+            display_address("data:text/html,anything", true),
+            "Новая вкладка · страница Feather"
+        );
+        assert!(display_address("https://пример.рф/a", false).contains("xn--"));
+        assert_eq!(restorable("javascript:alert(1)"), HOME);
+        assert_eq!(restorable(HOME), HOME);
     }
     #[test]
     fn bookmarks_toggle_and_history_are_bounded() {
