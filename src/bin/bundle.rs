@@ -5,4 +5,6 @@ fn main() {
     cef::build_util::win::build_bundle(out, "sever", true).unwrap();
 }
 #[cfg(not(windows))]
-fn main() { eprintln!("Сборка доступна на Windows"); }
+fn main() {
+    eprintln!("Сборка доступна на Windows");
+}

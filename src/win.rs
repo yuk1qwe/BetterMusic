@@ -4,94 +4,322 @@ use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 // Интерфейс реализован нативными CEF Views. Страницы не получают канал к Rust.
 type Shared = Rc<RefCell<BrowserState>>;
-struct Tab { id: u32, view: BrowserView, button: LabelButton, url: String, title: String }
-struct BrowserState {
-    data: Data, tabs: Vec<Tab>, active: u32, next: u32,
-    window: Option<Window>, bar: Option<Panel>, content: Option<Panel>, extra: Option<Panel>, address: Option<Textfield>, closing: bool,
+struct Tab {
+    id: u32,
+    view: BrowserView,
+    button: LabelButton,
+    url: String,
+    title: String,
 }
-fn profile() -> PathBuf { if let Some(p)=std::env::var_os("SEVER_PROFILE") { return PathBuf::from(p); } std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("SeverBrowser") }
-fn read_data() -> Data { std::fs::read(profile().join("state.json")).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default() }
+struct BrowserState {
+    data: Data,
+    tabs: Vec<Tab>,
+    active: u32,
+    next: u32,
+    window: Option<Window>,
+    bar: Option<Panel>,
+    content: Option<Panel>,
+    extra: Option<Panel>,
+    address: Option<Textfield>,
+    closing: bool,
+    browsers: usize,
+}
+fn profile() -> PathBuf {
+    if let Some(p) = std::env::var_os("SEVER_PROFILE") {
+        return PathBuf::from(p);
+    }
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("SeverBrowser")
+}
+fn read_data() -> Data {
+    std::fs::read(profile().join("state.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
 fn save(s: &BrowserState) {
-    if s.closing { return; }
+    if s.closing {
+        return;
+    }
     let mut data = s.data.clone();
-    data.tabs = s.tabs.iter().map(|t| t.url.clone()).filter(|u| core::web_url(u)).collect();
+    data.tabs = s
+        .tabs
+        .iter()
+        .map(|t| t.url.clone())
+        .filter(|u| core::web_url(u))
+        .collect();
     data.active = s.tabs.iter().position(|t| t.id == s.active).unwrap_or(0);
     let dir = profile();
     if std::fs::create_dir_all(&dir).is_ok() {
-        if let Ok(bytes) = serde_json::to_vec_pretty(&data) { let _ = std::fs::write(dir.join("state.json"), bytes); }
+        if let Ok(bytes) = serde_json::to_vec_pretty(&data) {
+            let temp = dir.join("state.tmp");
+            if std::fs::write(&temp, bytes).is_ok() {
+                let _ = std::fs::rename(temp, dir.join("state.json"));
+            }
+        }
     }
 }
-fn current(s: &Shared) -> Option<Browser> { let st=s.borrow(); st.tabs.iter().find(|t| t.id==st.active).and_then(|t| t.view.browser()) }
+fn current(s: &Shared) -> Option<Browser> {
+    let st = s.borrow();
+    st.tabs
+        .iter()
+        .find(|t| t.id == st.active)
+        .and_then(|t| t.view.browser())
+}
 fn switch(s: &Shared, id: u32) {
-    let (views, address, url, window) = { let mut st=s.borrow_mut(); st.active=id;
-        let views=st.tabs.iter().map(|t| (t.view.clone(), t.id==id)).collect::<Vec<_>>();
-        let url=st.tabs.iter().find(|t|t.id==id).map(|t|t.url.clone()).unwrap_or_default();
-        (views,st.address.clone(),url,st.window.clone()) };
-    for (view, active) in views { view.set_visible(active as i32); }
-    if let Some(a)=address { a.set_text(Some(&CefString::from(url.as_str()))); }
-    if let Some(w)=window { w.layout(); }
+    let (views, address, url, window) = {
+        let mut st = s.borrow_mut();
+        st.active = id;
+        let views = st
+            .tabs
+            .iter()
+            .map(|t| (t.view.clone(), t.id == id))
+            .collect::<Vec<_>>();
+        let url = st
+            .tabs
+            .iter()
+            .find(|t| t.id == id)
+            .map(|t| t.url.clone())
+            .unwrap_or_default();
+        (views, st.address.clone(), url, st.window.clone())
+    };
+    for (view, active) in views {
+        view.set_visible(active as i32);
+    }
+    if let Some(a) = address {
+        a.set_text(Some(&CefString::from(url.as_str())));
+    }
+    if let Some(w) = window {
+        w.layout();
+    }
     save(&s.borrow());
 }
 fn button(text: &str, action: Action, s: &Shared) -> LabelButton {
-    let mut d=Buttons::new(s.clone(), action);
+    let mut d = Buttons::new(s.clone(), action);
     label_button_create(Some(&mut d), Some(&CefString::from(text))).expect("кнопка")
 }
 fn make_tab(s: &Shared, url: &str) {
-    let (id, bar, content) = { let mut st=s.borrow_mut(); let id=st.next; st.next+=1; (id,st.bar.clone().unwrap(),st.content.clone().unwrap()) };
-    let mut client=BrowserClient::new(s.clone(),id);
-    let mut delegate=BrowserViewEvents::new();
-    let view=browser_view_create(Some(&mut client),Some(&CefString::from(url)),Some(&BrowserSettings::default()),None,None,Some(&mut delegate)).expect("вкладка");
-    let btn=button("Новая вкладка",Action::Tab(id),s);
-    { let mut st=s.borrow_mut(); st.tabs.push(Tab{id,view:view.clone(),button:btn.clone(),url:url.into(),title:"Новая вкладка".into()}); }
+    let (id, bar, content) = {
+        let mut st = s.borrow_mut();
+        let id = st.next;
+        st.next += 1;
+        (id, st.bar.clone().unwrap(), st.content.clone().unwrap())
+    };
+    let mut client = BrowserClient::new(s.clone(), id);
+    let mut delegate = BrowserViewEvents::new();
+    let view = browser_view_create(
+        Some(&mut client),
+        Some(&CefString::from(url)),
+        Some(&BrowserSettings::default()),
+        None,
+        None,
+        Some(&mut delegate),
+    )
+    .expect("вкладка");
+    let btn = button("Новая вкладка", Action::Tab(id), s);
+    {
+        let mut st = s.borrow_mut();
+        st.tabs.push(Tab {
+            id,
+            view: view.clone(),
+            button: btn.clone(),
+            url: url.into(),
+            title: "Новая вкладка".into(),
+        });
+    }
     bar.add_child_view(Some(&mut View::from(&btn)));
     content.add_child_view(Some(&mut View::from(&view)));
-    switch(s,id);
+    switch(s, id);
 }
-fn navigate(s: &Shared, text: &str) { if let (Some(u),Some(b))=(core::navigate(text),current(s)) { if let Some(frame)=b.main_frame() { frame.load_url(Some(&CefString::from(u.as_str()))); } } }
+fn navigate(s: &Shared, text: &str) {
+    if let (Some(u), Some(b)) = (core::navigate(text), current(s)) {
+        if let Some(frame) = b.main_frame() {
+            frame.load_url(Some(&CefString::from(u.as_str())));
+        }
+    }
+}
 fn external(s: &Shared) {
-    let url={let st=s.borrow(); st.tabs.iter().find(|t|t.id==st.active).map(|t|t.url.clone()).unwrap_or_default()};
-    if !core::web_url(&url) { return; }
+    let url = {
+        let st = s.borrow();
+        st.tabs
+            .iter()
+            .find(|t| t.id == st.active)
+            .map(|t| t.url.clone())
+            .unwrap_or_default()
+    };
+    if !core::web_url(&url) {
+        return;
+    }
     use std::os::windows::ffi::OsStrExt;
-    let wide:Vec<u16>=std::ffi::OsStr::new(&url).encode_wide().chain(Some(0)).collect();
-    unsafe { windows_sys::Win32::UI::Shell::ShellExecuteW(std::ptr::null_mut(), std::ptr::null(), wide.as_ptr(), std::ptr::null(), std::ptr::null(), windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL); }
+    let wide: Vec<u16> = std::ffi::OsStr::new(&url)
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    unsafe {
+        windows_sys::Win32::UI::Shell::ShellExecuteW(
+            std::ptr::null_mut(),
+            std::ptr::null(),
+            wide.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+            windows_sys::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL,
+        );
+    }
 }
-#[derive(Clone)] enum Action { New, Close, Back, Forward, Reload, Go, Tab(u32), Mode, Bookmark, History, Bookmarks, Open(String), External }
+#[derive(Clone)]
+enum Action {
+    New,
+    Close,
+    Back,
+    Forward,
+    Reload,
+    Go,
+    Tab(u32),
+    Mode,
+    Bookmark,
+    History,
+    Bookmarks,
+    Open(String),
+    External,
+}
 fn act(s: &Shared, action: Action) {
+    // Любое новое действие после отмены диалога beforeunload возобновляет сохранение.
+    {
+        let mut st = s.borrow_mut();
+        if st.closing {
+            st.closing = false;
+            save(&st);
+        }
+    }
     match action {
-        Action::New => make_tab(s,core::HOME),
-        Action::Tab(id) => switch(s,id),
-        Action::Close => { if let Some(b)=current(s) { if let Some(h)=b.host(){h.close_browser(0);} } },
-        Action::Back => { if let Some(b)=current(s){b.go_back();} },
-        Action::Forward => { if let Some(b)=current(s){b.go_forward();} },
-        Action::Reload => { if let Some(b)=current(s){b.reload();} },
-        Action::Go => { let text={s.borrow().address.as_ref().map(|a|CefString::from(&a.text()).to_string()).unwrap_or_default()}; navigate(s,&text); },
-        Action::Mode => { let (extra,hard)={let mut st=s.borrow_mut(); st.data.hard=!st.data.hard; (st.extra.clone(),st.data.hard)}; if let Some(p)=extra {p.set_visible(hard as i32);} if let Some(w)=s.borrow().window.clone(){w.layout();} save(&s.borrow()); },
-        Action::Bookmark => { let mut st=s.borrow_mut(); if let Some(t)=st.tabs.iter().find(|t|t.id==st.active) { let e=Entry{title:t.title.clone(),url:t.url.clone()}; st.data.toggle_bookmark(e); } save(&st); },
-        Action::Bookmarks => show_list(s,true),
-        Action::History => show_list(s,false),
-        Action::Open(url) => navigate(s,&url),
+        Action::New => make_tab(s, core::HOME),
+        Action::Tab(id) => switch(s, id),
+        Action::Close => {
+            if let Some(b) = current(s) {
+                if let Some(h) = b.host() {
+                    h.close_browser(0);
+                }
+            }
+        }
+        Action::Back => {
+            if let Some(b) = current(s) {
+                b.go_back();
+            }
+        }
+        Action::Forward => {
+            if let Some(b) = current(s) {
+                b.go_forward();
+            }
+        }
+        Action::Reload => {
+            if let Some(b) = current(s) {
+                b.reload();
+            }
+        }
+        Action::Go => {
+            let text = {
+                s.borrow()
+                    .address
+                    .as_ref()
+                    .map(|a| CefString::from(&a.text()).to_string())
+                    .unwrap_or_default()
+            };
+            navigate(s, &text);
+        }
+        Action::Mode => {
+            let (extra, hard) = {
+                let mut st = s.borrow_mut();
+                st.data.hard = !st.data.hard;
+                (st.extra.clone(), st.data.hard)
+            };
+            if let Some(p) = extra {
+                p.set_visible(hard as i32);
+            }
+            if let Some(w) = s.borrow().window.clone() {
+                w.layout();
+            }
+            save(&s.borrow());
+        }
+        Action::Bookmark => {
+            let mut st = s.borrow_mut();
+            if let Some(t) = st.tabs.iter().find(|t| t.id == st.active) {
+                let e = Entry {
+                    title: t.title.clone(),
+                    url: t.url.clone(),
+                };
+                st.data.toggle_bookmark(e);
+            }
+            save(&st);
+        }
+        Action::Bookmarks => show_list(s, true),
+        Action::History => show_list(s, false),
+        Action::Open(url) => navigate(s, &url),
         Action::External => external(s),
     }
 }
-fn show_list(s:&Shared, bookmarks:bool) {
+fn show_list(s: &Shared, bookmarks: bool) {
     // Список строится только по запросу, без фоновых страниц и сценариев.
-    let (panel,items)={let st=s.borrow(); (st.extra.clone(),if bookmarks {st.data.bookmarks.clone()} else {st.data.history.clone()})};
-    if let Some(p)=panel { p.remove_all_child_views();
-        p.add_child_view(Some(&mut View::from(&button("★ Сохранить / убрать",Action::Bookmark,s))));
-        p.add_child_view(Some(&mut View::from(&button("Закладки",Action::Bookmarks,s))));
-        p.add_child_view(Some(&mut View::from(&button("История",Action::History,s))));
-        p.add_child_view(Some(&mut View::from(&button("Открыть в системе",Action::External,s))));
-        for e in items.into_iter().take(4) { let label: String = if e.title.is_empty(){e.url.clone()}else{e.title.clone()}.chars().take(20).collect();
-            p.add_child_view(Some(&mut View::from(&button(&label,Action::Open(e.url),s)))); }
-        if let Some(w)=s.borrow().window.clone(){w.layout();}
+    let (panel, items) = {
+        let st = s.borrow();
+        (
+            st.extra.clone(),
+            if bookmarks {
+                st.data.bookmarks.clone()
+            } else {
+                st.data.history.clone()
+            },
+        )
+    };
+    if let Some(p) = panel {
+        p.remove_all_child_views();
+        p.add_child_view(Some(&mut View::from(&button(
+            "★ Сохранить / убрать",
+            Action::Bookmark,
+            s,
+        ))));
+        p.add_child_view(Some(&mut View::from(&button(
+            "Закладки",
+            Action::Bookmarks,
+            s,
+        ))));
+        p.add_child_view(Some(&mut View::from(&button(
+            "История",
+            Action::History,
+            s,
+        ))));
+        p.add_child_view(Some(&mut View::from(&button(
+            "Открыть в системе",
+            Action::External,
+            s,
+        ))));
+        for e in items.into_iter().take(4) {
+            let label: String = if e.title.is_empty() {
+                e.url.clone()
+            } else {
+                e.title.clone()
+            }
+            .chars()
+            .take(20)
+            .collect();
+            p.add_child_view(Some(&mut View::from(&button(
+                &label,
+                Action::Open(e.url),
+                s,
+            ))));
+        }
+        if let Some(w) = s.borrow().window.clone() {
+            w.layout();
+        }
     }
 }
 wrap_button_delegate! { struct Buttons { state: Shared, action: Action }
- impl ViewDelegate {} impl ButtonDelegate { fn on_button_pressed(&self,_unused1:Option<&mut Button>){act(&self.state,self.action.clone());} } }
+impl ViewDelegate {} impl ButtonDelegate { fn on_button_pressed(&self,_unused1:Option<&mut Button>){act(&self.state,self.action.clone());} } }
 wrap_textfield_delegate! { struct Address { state: Shared }
- impl ViewDelegate {} impl TextfieldDelegate { fn on_key_event(&self,_unused2:Option<&mut Textfield>,event:Option<&KeyEvent>)->i32 {
-    if event.is_some_and(|e|e.type_==KeyEventType::RAWKEYDOWN && e.windows_key_code==13) {act(&self.state,Action::Go);1}else{0}
- } } }
+impl ViewDelegate {} impl TextfieldDelegate { fn on_key_event(&self,_unused2:Option<&mut Textfield>,event:Option<&KeyEvent>)->i32 {
+   if event.is_some_and(|e|e.type_==KeyEventType::RAWKEYDOWN && e.windows_key_code==13) {act(&self.state,Action::Go);1}else{0}
+} } }
 wrap_browser_view_delegate! { struct BrowserViewEvents {} impl ViewDelegate {} impl BrowserViewDelegate {
  fn browser_runtime_style(&self)->RuntimeStyle {RuntimeStyle::ALLOY}
 } }
@@ -105,28 +333,32 @@ wrap_download_handler! { struct Downloads; impl DownloadHandler {
  fn on_before_download(&self,_unused6:Option<&mut Browser>,_unused7:Option<&mut DownloadItem>,_unused8:Option<&CefString>,callback:Option<&mut BeforeDownloadCallback>)->i32 { if let Some(cb)=callback {cb.cont(None,1);1}else{0} }
 } }
 wrap_display_handler! { struct DisplayEvents { state: Shared, id: u32 } impl DisplayHandler {
- fn on_address_change(&self,_unused9:Option<&mut Browser>,frame:Option<&mut Frame>,url:Option<&CefString>) {
-    if frame.is_none_or(|f|f.is_main()==0) {return;} let url=url.map(|u|u.to_string()).unwrap_or_default();
+ fn on_address_change(&self,browser:Option<&mut Browser>,frame:Option<&mut Frame>,url:Option<&CefString>) {
+    if browser.as_ref().is_some_and(|b|b.is_popup()!=0) || frame.is_none_or(|f|f.is_main()==0) {return;} let url=url.map(|u|u.to_string()).unwrap_or_default();
     if !core::web_url(&url){return;}
     let address={let mut st=self.state.borrow_mut(); if let Some(t)=st.tabs.iter_mut().find(|t|t.id==self.id){t.url=url.clone();}
        st.data.add_history(url.clone(),url.clone()); save(&st); if st.active==self.id {st.address.clone()}else{None}};
     if let Some(a)=address {a.set_text(Some(&CefString::from(url.as_str())));}
  }
- fn on_title_change(&self,_unused10:Option<&mut Browser>,title:Option<&CefString>) {
+ fn on_title_change(&self,browser:Option<&mut Browser>,title:Option<&CefString>) {
+    if browser.as_ref().is_some_and(|b|b.is_popup()!=0) {return;}
     let title=title.map(|t|t.to_string()).unwrap_or_default();
     let btn={let mut st=self.state.borrow_mut(); st.tabs.iter_mut().find(|t|t.id==self.id).map(|t|{t.title=title.clone();t.button.clone()})};
     if let Some(b)=btn {let t:String=title.chars().take(18).collect();b.set_text(Some(&CefString::from(t.as_str())));}
  }
 } }
 wrap_life_span_handler! { struct LifeEvents { state: Shared, id: u32 } impl LifeSpanHandler {
+ fn on_after_created(&self,_browser:Option<&mut Browser>) { self.state.borrow_mut().browsers += 1; }
  fn on_before_close(&self,browser:Option<&mut Browser>) {
+    let should_quit={let mut st=self.state.borrow_mut();st.browsers=st.browsers.saturating_sub(1);st.window.is_none() && st.browsers==0};
+    if should_quit {quit_message_loop();}
     // Popup uses the opener's client; never remove the opener's tab on popup close.
     if browser.as_ref().is_some_and(|b|b.is_popup()!=0){return;}
     let (tab,bar,content,next,window,closing)={ let mut st=self.state.borrow_mut();
        let tab=st.tabs.iter().position(|t|t.id==self.id).map(|i|st.tabs.remove(i));
        let next=st.tabs.last().map(|t|t.id); (tab,st.bar.clone(),st.content.clone(),next,st.window.clone(),st.closing) };
     if let Some(t)=tab { if let Some(p)=bar {p.remove_child_view(Some(&mut View::from(&t.button)));} if let Some(p)=content {p.remove_child_view(Some(&mut View::from(&t.view)));} }
-    if let Some(id)=next {switch(&self.state,id);} else if closing {if let Some(w)=window {w.close();}} else {make_tab(&self.state,core::HOME);}
+    if let Some(id)=next {switch(&self.state,id); if closing {if let Some(b)=current(&self.state) {if let Some(h)=b.host(){h.close_browser(0);}}}} else if closing {if let Some(w)=window {w.close();}} else {make_tab(&self.state,core::HOME);}
  }
 } }
 wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
@@ -158,24 +390,54 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     let browser={let mut st=self.state.borrow_mut(); if !st.closing {save(&st);st.closing=true;} st.tabs.last().and_then(|t|t.view.browser())};
     if let Some(b)=browser { if let Some(h)=b.host(){h.close_browser(0);} 0 } else {1}
  }
- fn on_window_destroyed(&self,_unused16:Option<&mut Window>){quit_message_loop();}
+ fn on_window_destroyed(&self,_window:Option<&mut Window>){let quit={let mut st=self.state.borrow_mut();st.window=None;st.browsers==0}; if quit {quit_message_loop();}}
  fn on_accelerator(&self,_unused17:Option<&mut Window>,id:i32)->i32 {match id {1=>act(&self.state,Action::New),2=>act(&self.state,Action::Close),3=>{if let Some(a)=self.state.borrow().address.clone(){a.request_focus();a.select_all(0);}},4=>act(&self.state,Action::Reload),5=>act(&self.state,Action::Back),6=>act(&self.state,Action::Forward),_=>return 0};1}
  fn window_runtime_style(&self)->RuntimeStyle{RuntimeStyle::ALLOY}
 } }
 wrap_app! { struct AppImpl; impl App {fn browser_process_handler(&self)->Option<BrowserProcessHandler>{Some(Process::new())}} }
 wrap_browser_process_handler! {struct Process; impl BrowserProcessHandler {
- fn on_context_initialized(&self){let state=Rc::new(RefCell::new(BrowserState{data:read_data(),tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,address:None,closing:false})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
+ fn on_context_initialized(&self){let state=Rc::new(RefCell::new(BrowserState{data:read_data(),tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,address:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
 } }
 #[unsafe(no_mangle)]
-unsafe extern "C" fn RunWinMain(instance:sys::HINSTANCE,_cmd:*const u8,_show:i32,sandbox_info:*mut u8)->i32 {
-    let _=api_hash(sys::CEF_API_VERSION_LAST,0);
-    let args=args::Args::from(MainArgs{instance});
-    let process=execute_process(Some(args.as_main_args()),None,sandbox_info);
-    if process>=0 {return process;}
-    let dir=profile(); if std::fs::create_dir_all(&dir).is_err(){return 1;}
-    let cache=dir.join("cef").to_string_lossy().into_owned();
-    let settings=Settings{no_sandbox:0,root_cache_path:CefString::from(cache.as_str()),cache_path:CefString::from(cache.as_str()),persist_session_cookies:1,locale:CefString::from("ru"),accept_language_list:CefString::from("ru-RU,ru,en-US,en"),use_views_default_popup:1,..Default::default()};
-    let mut app=AppImpl::new();
-    if initialize(Some(args.as_main_args()),Some(&settings),Some(&mut app),sandbox_info)!=1{return 1;}
-    run_message_loop(); shutdown(); 0
+unsafe extern "C" fn RunWinMain(
+    instance: sys::HINSTANCE,
+    _cmd: *const u8,
+    _show: i32,
+    sandbox_info: *mut u8,
+) -> i32 {
+    let _ = api_hash(sys::CEF_API_VERSION_LAST, 0);
+    let args = args::Args::from(MainArgs { instance });
+    let process = execute_process(Some(args.as_main_args()), None, sandbox_info);
+    if process >= 0 {
+        return process;
+    }
+    let dir = profile();
+    if std::fs::create_dir_all(&dir).is_err() {
+        return 1;
+    }
+    let cache = dir.join("cef").to_string_lossy().into_owned();
+    let settings = Settings {
+        no_sandbox: 0,
+        command_line_args_disabled: 1,
+        root_cache_path: CefString::from(cache.as_str()),
+        cache_path: CefString::from(cache.as_str()),
+        persist_session_cookies: 1,
+        locale: CefString::from("ru"),
+        accept_language_list: CefString::from("ru-RU,ru,en-US,en"),
+        use_views_default_popup: 1,
+        ..Default::default()
+    };
+    let mut app = AppImpl::new();
+    if initialize(
+        Some(args.as_main_args()),
+        Some(&settings),
+        Some(&mut app),
+        sandbox_info,
+    ) != 1
+    {
+        return 1;
+    }
+    run_message_loop();
+    shutdown();
+    0
 }
