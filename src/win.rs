@@ -458,7 +458,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     for h in hosts {if h.try_close_browser()==0 {return 0;}}
     1
  }
- fn on_window_destroyed(&self,_window:Option<&mut Window>){trace("on_window_destroyed");let quit={let mut st=self.state.borrow_mut();st.window=None;st.tabs.clear();st.browsers==0}; if quit {quit_message_loop();}}
+ fn on_window_destroyed(&self,_window:Option<&mut Window>){trace("on_window_destroyed");let (tabs,quit)={let mut st=self.state.borrow_mut();st.window=None;(std::mem::take(&mut st.tabs),st.browsers==0)}; drop(tabs); if quit {quit_message_loop();}}
  fn on_accelerator(&self,_unused17:Option<&mut Window>,id:i32)->i32 {match id {1=>act(&self.state,Action::New),2=>act(&self.state,Action::Close),3=>{if let Some(a)=self.state.borrow().address.clone(){a.request_focus();a.select_all(0);}},4=>act(&self.state,Action::Reload),5=>act(&self.state,Action::Back),6=>act(&self.state,Action::Forward),_=>return 0};1}
  fn window_runtime_style(&self)->RuntimeStyle{RuntimeStyle::ALLOY}
 } }
