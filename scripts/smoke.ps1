@@ -13,7 +13,12 @@ try {
   for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep -Seconds 1
     $app.Refresh()
-    if ($app.HasExited) { throw "Процесс браузера завершился: $($app.ExitCode)" }
+    if ($app.HasExited) {
+      foreach ($file in @((Join-Path $env:SEVER_PROFILE 'panic.txt'),(Join-Path $env:SEVER_PROFILE 'lifecycle.txt'),"$PWD/dist/Feather/debug.log")) {
+        if (Test-Path $file) { Write-Host "Диагностика: $file"; Get-Content $file -Tail 100 | Write-Host }
+      }
+      throw "Процесс браузера завершился: $($app.ExitCode)"
+    }
     $window = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $title)
     if ($window) { break }
   }

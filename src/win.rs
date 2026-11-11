@@ -70,10 +70,12 @@ const POPUP_ADDRESS_ID: i32 = 17001;
 fn start_page_url() -> &'static str {
     static START: OnceLock<String> = OnceLock::new();
     START.get_or_init(|| {
-        let encoded = CefString::from(&base64_encode(Some(include_bytes!(
-            "../assets/new_tab.html"
+        let image = CefString::from(&base64_encode(Some(include_bytes!(
+            "../assets/new_tab.webp"
         ))))
         .to_string();
+        let page = include_str!("../assets/new_tab.html").replace("{{BACKGROUND}}", &image);
+        let encoded = CefString::from(&base64_encode(Some(page.as_bytes()))).to_string();
         format!("data:text/html;charset=utf-8;base64,{encoded}")
     })
 }
@@ -123,6 +125,7 @@ fn current(s: &Shared) -> Option<Browser> {
         .and_then(|v| v.browser())
 }
 fn ensure_tab(s: &Shared, id: u32) {
+    trace("ensure_tab:start");
     let (url, content) = {
         let st = s.borrow();
         let Some(t) = st.tabs.iter().find(|t| t.id == id) else {
@@ -156,6 +159,7 @@ fn ensure_tab(s: &Shared, id: u32) {
     content.add_child_view(Some(&mut View::from(&view)));
 }
 fn switch(s: &Shared, id: u32) {
+    trace("switch:start");
     {
         let mut st = s.borrow_mut();
         if !st.tabs.iter().any(|t| t.id == id) {
@@ -233,7 +237,9 @@ fn button(text: &str, action: Action, s: &Shared) -> LabelButton {
     button
 }
 fn text_label(text: &str, color: u32) -> LabelButton {
-    let button = label_button_create(None, Some(&CefString::from(text))).expect("подпись");
+    let mut delegate = PassiveLabel::new();
+    let button =
+        label_button_create(Some(&mut delegate), Some(&CefString::from(text))).expect("подпись");
     button.set_focusable(0);
     button.set_font_list(Some(&CefString::from("Segoe UI, 13px")));
     button.set_enabled_text_colors(color);
@@ -639,6 +645,7 @@ fn show_list(s: &Shared, bookmarks: bool, page: usize) {
     ))));
     refresh_panel(s);
 }
+wrap_button_delegate! { struct PassiveLabel {} impl ViewDelegate {} impl ButtonDelegate {} }
 wrap_button_delegate! { struct Buttons { state: Shared, action: Action }
 impl ViewDelegate {} impl ButtonDelegate { fn on_button_pressed(&self,_unused1:Option<&mut Button>){act(&self.state,self.action.clone());} } }
 wrap_textfield_delegate! { struct Address { state: Shared }
@@ -747,7 +754,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
  fn preferred_size(&self,_unused11:Option<&mut View>)->Size {Size{width:1200,height:800}}
 } impl PanelDelegate {} impl WindowDelegate {
  fn on_window_created(&self,window:Option<&mut Window>) {
-    let Some(w)=window else{return};w.set_title(Some(&CefString::from("Feather — браузер")));w.set_background_color(BG);
+    trace("window:created");let Some(w)=window else{return};w.set_title(Some(&CefString::from("Feather — браузер")));w.set_background_color(BG);
     let root=w.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:0,cross_axis_alignment:AxisAlignment::STRETCH,..Default::default()})).unwrap();
     let top=panel_create(None).unwrap();top.set_background_color(SURFACE);
     let top_layout=top.set_to_box_layout(Some(&BoxLayoutSettings{horizontal:1,between_child_spacing:5,cross_axis_alignment:AxisAlignment::STRETCH,inside_border_insets:Insets{top:6,left:8,bottom:4,right:8},..Default::default()})).unwrap();
@@ -785,7 +792,7 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
     body_layout.set_flex_for_view(Some(&mut View::from(&content)),1);
     w.add_child_view(Some(&mut View::from(&top)));w.add_child_view(Some(&mut View::from(&nav)));w.add_child_view(Some(&mut View::from(&body)));
     root.set_flex_for_view(Some(&mut View::from(&body)),1);
-    let (restore,active,hard)={let mut st=self.state.borrow_mut();st.window=Some(w.clone());st.bar=Some(bar);st.content=Some(content);st.extra=Some(extra.clone());st.rail=Some(rail.clone());st.address=Some(address);
+    trace("window:views_ready");let (restore,active,hard)={let mut st=self.state.borrow_mut();st.window=Some(w.clone());st.bar=Some(bar);st.content=Some(content);st.extra=Some(extra.clone());st.rail=Some(rail.clone());st.address=Some(address);
        (st.data.tabs.clone(),st.data.active,st.data.hard)};
     rail.set_visible(hard as i32);extra.set_visible(hard as i32);
     for (id,key,ctrl,alt) in [(1,84,1,0),(2,87,1,0),(3,76,1,0),(4,82,1,0),(5,37,0,1),(6,39,0,1)] {w.set_accelerator(id,key,0,ctrl,alt,1);}
@@ -796,8 +803,8 @@ wrap_window_delegate! { struct MainWindow { state: Shared } impl ViewDelegate {
       if std::env::var_os("FEATHER_EAGER_RESTORE").is_some(){for id in &ids {ensure_tab(&self.state,*id);}}
       switch(&self.state,ids[active.min(ids.len()-1)]);
     }
-    if hard {show_resources(&self.state);}
-    w.show();
+    trace("window:tabs_ready");if hard {show_resources(&self.state);}
+    trace("window:show");w.show();
  }
  fn can_resize(&self,_unused12:Option<&mut Window>)->i32{1} fn can_maximize(&self,_unused13:Option<&mut Window>)->i32{1} fn can_minimize(&self,_unused14:Option<&mut Window>)->i32{1}
  fn can_close(&self,_unused15:Option<&mut Window>)->i32 {
@@ -817,7 +824,7 @@ wrap_app! { struct AppImpl; impl App {
  fn browser_process_handler(&self)->Option<BrowserProcessHandler>{Some(Process::new())}
 } }
 wrap_browser_process_handler! {struct Process; impl BrowserProcessHandler {
- fn on_context_initialized(&self){let state=Rc::new(RefCell::new(BrowserState{data:read_data(),downloads:vec![],tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,rail:None,address:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
+ fn on_context_initialized(&self){trace("context_initialized");let state=Rc::new(RefCell::new(BrowserState{data:read_data(),downloads:vec![],tabs:vec![],active:0,next:1,window:None,bar:None,content:None,extra:None,rail:None,address:None,closing:false,browsers:0})); let mut d=MainWindow::new(state);window_create_top_level(Some(&mut d));}
 } }
 #[unsafe(no_mangle)]
 unsafe extern "C" fn RunWinMain(
@@ -835,6 +842,15 @@ unsafe extern "C" fn RunWinMain(
     let dir = profile();
     if std::fs::create_dir_all(&dir).is_err() {
         return 1;
+    }
+    if std::env::var_os("SEVER_LAYOUT_DEBUG").is_some() {
+        let panic_path = dir.join("panic.txt");
+        std::panic::set_hook(Box::new(move |info| {
+            let _ = std::fs::write(
+                &panic_path,
+                format!("{info}\n{}", std::backtrace::Backtrace::force_capture()),
+            );
+        }));
     }
     let cache = dir.join("cef").to_string_lossy().into_owned();
     let settings = Settings {
